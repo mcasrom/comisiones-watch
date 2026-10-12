@@ -1,0 +1,9 @@
+Fuente: https://www.congreso.es/es/comisiones
+Ámbito: listado público de comisiones, legislatura XV.
+Captura: una petición con UA de navegador durante la Fase 0; 125.386 bytes, HTTP 200.
+Uso: solo pruebas del descubridor. No contiene sesiones, cargos ni tarifas.
+
+Muestra de composición 301: respuesta JSON del recurso oficial `searchOrgano`
+con `_organos_selectedLegislatura=XV`, `_organos_selectedOrganoSup=1`,
+`_organos_selectedSuborgano=301` y `_organos_compoHistorica=true`; 27.827 bytes,
+HTTP 200. Contiene 85 filas y metadatos de constitución/disolución.

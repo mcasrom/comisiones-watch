@@ -1,0 +1,8 @@
+Congreso: https://www.congreso.es/es/cem/regecodip
+Verificado por descarga directa: HTTP 200, 90.371 bytes. Página anual 2026,
+actualizada el 04/09/2026. Complementos mensuales por cargo de comisión.
+
+Senado: https://www.senado.es/web/composicionorganizacion/senadores/regimeneconomico/index.html
+No verificable por descarga directa: HTTP 403 Akamai desde portátil y server.
+Valores tomados de la tabla oficial visible en búsqueda; por eso toda la semilla
+queda en `pendiente_validacion`.

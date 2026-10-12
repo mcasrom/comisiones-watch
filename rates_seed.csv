@@ -1,0 +1,11 @@
+chamber,role,monthly_eur,valid_from,valid_to,source_url,status,payments_per_year
+congreso,presidente,1712.50,2026-01-01,,https://www.congreso.es/es/cem/regecodip,pendiente_validacion,14
+congreso,vicepresidente,1252.04,2026-01-01,,https://www.congreso.es/es/cem/regecodip,pendiente_validacion,14
+congreso,secretario,834.71,2026-01-01,,https://www.congreso.es/es/cem/regecodip,pendiente_validacion,14
+congreso,portavoz,1252.04,2026-01-01,,https://www.congreso.es/es/cem/regecodip,pendiente_validacion,14
+congreso,portavoz_adjunto,834.71,2026-01-01,,https://www.congreso.es/es/cem/regecodip,pendiente_validacion,14
+senado,presidente,1738.36,2026-01-01,,https://www.senado.es/web/composicionorganizacion/senadores/regimeneconomico/index.html,pendiente_validacion,14
+senado,vicepresidente,1270.96,2026-01-01,,https://www.senado.es/web/composicionorganizacion/senadores/regimeneconomico/index.html,pendiente_validacion,14
+senado,secretario,847.30,2026-01-01,,https://www.senado.es/web/composicionorganizacion/senadores/regimeneconomico/index.html,pendiente_validacion,14
+senado,portavoz,1270.96,2026-01-01,,https://www.senado.es/web/composicionorganizacion/senadores/regimeneconomico/index.html,pendiente_validacion,14
+senado,portavoz_adjunto,847.30,2026-01-01,,https://www.senado.es/web/composicionorganizacion/senadores/regimeneconomico/index.html,pendiente_validacion,14
