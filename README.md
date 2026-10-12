@@ -43,6 +43,19 @@ python3 -m http.server 8137 --bind 127.0.0.1
 ~13 MB de pico medido, web de 68 KB, cron semanal secuencial con `nice -n 19`,
 1 petición/segundo y `User-Agent` identificable. Nada residente.
 
+## Goteo (fuentes inestables)
+
+Si el Congreso limita por volumen, ingesta nocturna lenta en lugar de serie rápida:
+
+```bash
+nice -n 19 python3 scripts/fetch_composiciones.py --out data/bruto-congreso \
+  --limit 8 --sleep 25
+```
+
+8 comisiones/noche ≈ ciclo completo en una semana (la composición cambia
+despacio). Máximo 3 intentos por sesión; ante `503`/HTML, parar y registrar el
+fallo en el manifiesto en vez de insistir.
+
 ## Rigor
 
 - Cada cifra con fuente enlazada, vigencia y fecha de corte.
