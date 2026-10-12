@@ -101,15 +101,11 @@ def store_raw(raw_dir, name, payload, files):
 
 
 def main():
-    global SLEEP_SECONDS
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default=str(ROOT / "data" / "bruto-congreso"))
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--offset", type=int, default=0)
-    parser.add_argument("--sleep", type=float, default=SLEEP_SECONDS,
-                        help="segundos entre peticiones (goteo: 20-30 de madrugada)")
     args = parser.parse_args()
-    SLEEP_SECONDS = args.sleep
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     global COOKIE_JAR

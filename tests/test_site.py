@@ -27,6 +27,22 @@ class SiteTest(unittest.TestCase):
         self.assertIn("SELECT COUNT(*) FROM commissions;", self.pages["metodologia.html"])
         self.assertIn("pendiente_validacion", self.pages["metodologia.html"])
 
+    def test_ficha_por_comision_cargada(self):
+        import sqlite3
+
+        con = sqlite3.connect(ROOT / "data" / "comisiones.db")
+        codes = [
+            row[0]
+            for row in con.execute(
+                "SELECT DISTINCT commission_source_id FROM composition_raw"
+            ).fetchall()
+        ]
+        self.assertGreaterEqual(len(codes), 1)
+        for code in codes:
+            page = self.web / f"comision-{code}.html"
+            self.assertTrue(page.exists(), f"falta ficha de {code}")
+            self.assertLessEqual(len(page.read_bytes()), 300 * 1024)
+
 
 if __name__ == "__main__":
     unittest.main()
