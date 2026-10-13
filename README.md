@@ -5,10 +5,12 @@ real frente a coste estimado** de sus cargos. Datos públicos verificables,
 mismo rasero para todas las comisiones y todos los grupos.
 
 > **Estado: piloto, sin desplegar.** No hay web pública. Lo verificado hasta
-> hoy: 50 comisiones del Congreso descubiertas, composición real de una
-> (Constitucional, 301), semilla 2026 de 10 tarifas (todas pendientes de
-> validación) y metodología honesta. Coste y actividad publicados: **dato no
-> disponible**. Ver `docs/PROBLEMA_FUENTE_CONGRESO.md` y `docs/SPRINT_PILOTO.md`.
+> hoy: 50 comisiones del Congreso descubiertas; composición cargable por **vía
+> manual CSV** (`ingest_csv.py`; probada con 4 comisiones, 378 filas) y muestra
+> 301 confirmada **85/85** CSV↔JSON; semilla 2026 de 10 tarifas (todas
+> **pendientes** de validación) y metodología honesta. Coste y actividad
+> publicados: **dato no disponible**. Ver `docs/PROBLEMA_FUENTE_CONGRESO.md`,
+> `docs/SPRINT_PILOTO.md` y `docs/HOJA_DE_RUTA.md`.
 
 ## Estructura
 
@@ -18,11 +20,14 @@ mismo rasero para todas las comisiones y todos los grupos.
   coste nominal + anualizado. Las tarifas pendientes **nunca** entran.
 - `build_site.py` — genera el estático (`index.html`, ficha, metodología,
   `llms.txt`) desde SQLite piloto. Sin frameworks, lectura sin JavaScript.
+- `ingest_csv.py` — **vía manual verificada** (no depende de la red): los CSV
+  del exportador del navegador (`Cargo;NombreOrgano;Nombre;Grupo;FechaAlta;FechaBaja`)
+  → SQLite. Reejecutable sin duplicar, fallo visible por fichero, manifiesto con hash.
 - `scripts/fetch_composiciones.py` — descarga secuencial (1 req/s) con hash,
   gzip y manifiesto. Requiere `curl`.
 - `collector.py`, `schema.sql` — esqueleto inicial (CLI mínimo y esquema base).
 - `rates_seed.csv` — 10 tarifas oficiales 2026, **todas pendientes**.
-- `tests/` — parsers con fixtures reales + métricas + web. `12/12`.
+- `tests/` — parsers con fixtures reales + métricas + web + ingesta CSV. `16/16`.
 - `docs/` — sprint piloto, staging y narrativa del bloqueo de la fuente.
 
 ## Uso
@@ -30,6 +35,10 @@ mismo rasero para todas las comisiones y todos los grupos.
 ```bash
 python3 -m unittest discover -s tests -v
 python3 build_site.py   # genera web/ + data/comisiones.db (solo revisión local)
+
+# Vía manual verificada (CSV descargados del navegador; no toca la red):
+python3 ingest_csv.py --csv-dir data/csv --db data/comisiones.db
+python3 build_site.py
 ```
 
 Servir en local solo para revisar:
