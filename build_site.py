@@ -120,7 +120,7 @@ def build_db(root):
     con.executemany(
         "INSERT INTO commissions VALUES (?,?,?,?,?,?,?) "
         "ON CONFLICT(source_id) DO UPDATE SET "
-        "chamber=excluded.chamber, kind=excluded.kind, name=excluded.name, "
+        "chamber=excluded.chamber, kind=excluded.kind, "
         "section=excluded.section, url=excluded.url, legislatura=excluded.legislatura",
         [
             (

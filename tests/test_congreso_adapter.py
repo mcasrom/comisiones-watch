@@ -3,13 +3,16 @@ import unittest
 from pathlib import Path
 
 from adapters.congreso import (
+    EXPORT_HEADER,
     canonical_role,
+    composition_csv_request,
     composition_metadata,
     detail_signals,
     discover_commissions,
     parse_composition_payload,
     parse_organ_export,
     validate_discovery,
+    validate_export_csv,
 )
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "congreso_comisiones.html"
@@ -38,15 +41,50 @@ class CongresoAdapterTest(unittest.TestCase):
         payload = {
             "datosOrganos": [
                 {
-                    "indexOrgano": 301,
+                    "indexOrgano": 0,
                     "descOrgano": "Comisión Constitucional",
-                    "urlExport": "/mesa?_organos_statusOpenData=true",
+                    "urlExport": (
+                        "/organos/composicion-en-la-legislatura"
+                        "?p_p_id=organos&_organos_statusOpenData=true"
+                        "&_organos_selectedOrganoSup=1"
+                        "&_organos_selectedSuborgano=301"
+                        "&_organos_selectedLegislatura=XV"
+                    ),
                 }
             ]
         }
         (record,) = parse_organ_export(payload)
         self.assertEqual(record["source_id"], "301")
+        self.assertEqual(record["name"], "Comisión Constitucional")
         self.assertTrue(record["export_url"].startswith("https://www.congreso.es/"))
+
+    def test_builds_official_csv_request_from_export_url(self):
+        export_url = (
+            "/organos/composicion-en-la-legislatura"
+            "?p_p_id=organos&_organos_selectedOrganoSup=1"
+            "&_organos_selectedSuborgano=315&_organos_selectedLegislatura=XV"
+        )
+        source_id, url, form = composition_csv_request(export_url, "XV")
+        self.assertEqual(source_id, "315")
+        self.assertIn("_organos_selectedSuborgano=315", url)
+        self.assertIn("p_p_resource_id=opendataExport", url)
+        self.assertIn("_organos_selectedOrganoSup=1", url)
+        self.assertEqual(form["_organos_fileType"], "csv")
+        self.assertEqual(form["_organos_compoHistorica"], "true")
+        self.assertEqual(form["_organos_selectedSuborgano"], "315")
+        with self.assertRaises(ValueError):
+            composition_csv_request("/organos/composicion-en-la-legislatura?p_p_id=organos")
+
+    def test_validates_official_csv(self):
+        header = ";".join(EXPORT_HEADER)
+        body = f"\ufeff{header}\nPresidente;Comisión X;Apellido, Nombre;GP;04/12/2023;\n"
+        self.assertEqual(validate_export_csv(body.encode("utf-8")), EXPORT_HEADER)
+        with self.assertRaises(ValueError):
+            validate_export_csv(b"")
+        with self.assertRaises(ValueError):
+            validate_export_csv(b"a;b;c\n1;2;3\n")
+        with self.assertRaises(ValueError):
+            validate_export_csv(b'{"error": "solo cabecera"}')
 
     def test_builds_official_detail_and_composition_urls(self):
         signals = detail_signals(DETAIL_FIXTURE.read_text(encoding="utf-8"))
@@ -103,6 +141,10 @@ class CongresoAdapterTest(unittest.TestCase):
             parse_organ_export({"otra": []})
         with self.assertRaises(ValueError):
             parse_organ_export({"datosOrganos": [{"indexOrgano": 301}]})
+        with self.assertRaises(ValueError):
+            parse_organ_export(
+                {"datosOrganos": [{"descOrgano": "X", "urlExport": "/mesa?x=1"}]}
+            )
         with self.assertRaises(ValueError):
             parse_composition_payload({"otro": []}, commission_id=301)
         with self.assertRaises(ValueError):

@@ -6,7 +6,10 @@ Uso:
 
 Cada CSV debe tener la cabecera exacta del exportador oficial:
     Cargo;NombreOrgano;Nombre;Grupo;FechaAlta;FechaBaja
-La comisión se resuelve por `NombreOrgano` contra el descubrimiento del listado.
+La comisión se resuelve por el código oficial: si el nombre del fichero es
+numérico (`301.csv`, lo que produce `scripts/fetch_composiciones.py`) se usa como
+`source_id`; si no, se cae al nombre (`NombreOrgano`) contra el listado. El nombre
+canónico que se guarda es el `NombreOrgano` del CSV (nombre completo oficial).
 Un fichero con error hace fallar la ejecución (fallo visible); lo ya cargado se
 conserva y el manifiesto registra el motivo. Reejecutable sin duplicar.
 """
@@ -76,10 +79,13 @@ def load_discovery():
     listing = (ROOT / "tests" / "fixtures" / "congreso_comisiones.html").read_text(
         encoding="utf-8"
     )
-    return {item["name"]: item for item in discover_commissions(listing)}
+    items = discover_commissions(listing)
+    by_code = {item["source_id"]: item for item in items}
+    by_name = {item["name"]: item for item in items}
+    return by_code, by_name
 
 
-def ingest_file(path, discovery, con):
+def ingest_file(path, by_code, by_name, con):
     raw = path.read_bytes()
     digest = hashlib.sha256(raw).hexdigest()
     try:
@@ -96,9 +102,16 @@ def ingest_file(path, discovery, con):
     if len(organs) != 1:
         raise IngestError(f"{path.name}: mezcla varios órganos {sorted(organs)}")
     organ = organs.pop()
-    if organ not in discovery:
-        raise IngestError(f"{path.name}: órgano desconocido {organ!r}")
-    commission = discovery[organ]
+    if path.stem.isdigit():
+        commission = by_code.get(path.stem)
+        resolved_by = "codigo"
+        if commission is None:
+            raise IngestError(f"{path.name}: código de comisión desconocido {path.stem!r}")
+    else:
+        commission = by_name.get(organ)
+        resolved_by = "nombre"
+        if commission is None:
+            raise IngestError(f"{path.name}: órgano desconocido {organ!r}")
     parsed = []
     for lineno, row in enumerate(rows, start=2):
         name = (row["Nombre"] or "").strip()
@@ -134,7 +147,7 @@ def ingest_file(path, discovery, con):
             commission["source_id"],
             commission["chamber"],
             commission["kind"],
-            commission["name"],
+            organ,
             commission["section"],
             commission["url"],
             commission["legislatura"],
@@ -152,6 +165,7 @@ def ingest_file(path, discovery, con):
         "sha256": digest,
         "comision": organ,
         "codigo": commission["source_id"],
+        "resuelto_por": resolved_by,
         "filas": len(parsed),
         "pendientes_diccionario": sum(1 for row in parsed if row[5] is None),
     }
@@ -163,6 +177,7 @@ def run(csv_dir, db_path, cutoff=None):
     db_path.parent.mkdir(parents=True, exist_ok=True)
     cutoff = cutoff or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     discovery = load_discovery()
+    by_code, by_name = discovery
     con = sqlite3.connect(db_path)
     con.executescript(DDL)
     files = sorted(csv_dir.glob("*.csv"))
@@ -171,7 +186,7 @@ def run(csv_dir, db_path, cutoff=None):
     manifest = {"corte": cutoff, "ficheros": [], "errores": []}
     for path in files:
         try:
-            manifest["ficheros"].append(ingest_file(path, discovery, con))
+            manifest["ficheros"].append(ingest_file(path, by_code, by_name, con))
             con.commit()
         except IngestError as exc:
             con.rollback()

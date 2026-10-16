@@ -53,6 +53,25 @@ class IngestCsvTest(unittest.TestCase):
         manifest = run(self.tmp / "csv", self.db, cutoff="2026-10-12")
         self.assertTrue(any("desconocido" in e for e in manifest["errores"]))
 
+    def test_ingiere_por_codigo_con_nombre_completo(self):
+        nombre_completo = (
+            "Comisión Mixta para la Coordinación y Seguimiento de la Estrategia "
+            "Española para alcanzar los Objetivos de Desarrollo Sostenible (ODS)"
+        )
+        content = REAL_CSV.read_text(encoding="utf-8").replace(
+            "Comisión Constitucional", nombre_completo
+        )
+        (self.tmp / "csv" / "301.csv").write_text(content, encoding="utf-8")
+        manifest = run(self.tmp / "csv", self.db, cutoff="2026-10-12")
+        self.assertEqual(manifest["errores"], [])
+        self.assertEqual(manifest["ficheros"][0]["codigo"], "301")
+        self.assertEqual(manifest["ficheros"][0]["resuelto_por"], "codigo")
+        con = sqlite3.connect(self.db)
+        self.assertEqual(
+            con.execute("SELECT name FROM commissions WHERE source_id='301'").fetchone()[0],
+            nombre_completo,
+        )
+
     def test_sin_csv_falla(self):
         with self.assertRaises(IngestError):
             run(self.tmp / "csv", self.db, cutoff="2026-10-12")

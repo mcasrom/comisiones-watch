@@ -79,11 +79,16 @@ def discover_commissions(html, base_url=BASE_URL, legislatura="XV"):
     return list(commissions.values())
 
 
+EXPORT_HEADER = ["Cargo", "NombreOrgano", "Nombre", "Grupo", "FechaAlta", "FechaBaja"]
+
+
 def parse_organ_export(payload, chamber="congreso", legislatura="XV"):
     """Normaliza la respuesta JSON del recurso `resourceIDOrganos`.
 
     No se llama en los tests con red: recibe un objeto ya descargado y rechaza
-    explícitamente cualquier forma inesperada.
+    explícitamente cualquier forma inesperada. El código oficial de la comisión
+    NO es `indexOrgano` (un índice de posición 0..N): viaja en `urlExport` como
+    `_organos_selectedSuborgano`, así que se extrae de ahí.
     """
     if (
         not isinstance(payload, dict)
@@ -95,11 +100,12 @@ def parse_organ_export(payload, chamber="congreso", legislatura="XV"):
         if not isinstance(row, dict):
             raise ValueError("fila de órgano inesperada")
         try:
-            source_id = str(row["indexOrgano"])
             name = str(row["descOrgano"]).strip()
             export_url = str(row["urlExport"])
         except KeyError as exc:
             raise ValueError(f"fila de órgano incompleta: {exc}") from exc
+        query = dict(parse_qsl(urlparse(export_url).query))
+        source_id = str(query.get("_organos_selectedSuborgano", "")).strip()
         if not source_id or not name or not export_url:
             raise ValueError("fila de órgano incompleta")
         records.append(
@@ -114,6 +120,47 @@ def parse_organ_export(payload, chamber="congreso", legislatura="XV"):
             }
         )
     return records
+
+
+def composition_csv_request(export_url, legislatura="XV"):
+    """Convierte un `urlExport` de órgano en la petición del CSV oficial.
+
+    Devuelve `(source_id, url, form)`. La URL apunta al recurso `opendataExport`
+    de `composicion-en-la-legislatura` y el formulario pide el histórico
+    (`_organos_compoHistorica=true`) en CSV, que es byte a byte el que exporta el
+    navegador. No hace red; es pura y testeable.
+    """
+    query = dict(parse_qsl(urlparse(export_url).query))
+    sup = str(query.get("_organos_selectedOrganoSup", "1")).strip() or "1"
+    source_id = str(query.get("_organos_selectedSuborgano", "")).strip()
+    if not source_id:
+        raise ValueError("urlExport sin _organos_selectedSuborgano")
+    url = urljoin(BASE_URL, COMPOSITION_PATH) + (
+        "?p_p_id=organos&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view"
+        f"&p_p_resource_id={EXPORT_RESOURCE_ID}&p_p_cacheability=cacheLevelPage"
+        f"&_organos_selectedLegislatura={legislatura}&_organos_statusOpenData=true"
+        f"&_organos_selectedOrganoSup={sup}&_organos_selectedSuborgano={source_id}"
+    )
+    form = {
+        "_organos_selectedLegislatura": legislatura,
+        "_organos_compoHistorica": "true",
+        "_organos_selectedOrganoSup": sup,
+        "_organos_selectedSuborgano": source_id,
+        "_organos_fileType": "csv",
+    }
+    return source_id, url, form
+
+
+def validate_export_csv(payload):
+    """Comprueba que el cuerpo descargado es el CSV oficial de composición."""
+    text = payload.decode("utf-8-sig", "replace")
+    lines = text.splitlines()
+    if not lines:
+        raise ValueError("CSV de composición vacío")
+    header = [cell.strip() for cell in lines[0].split(";")]
+    if header != EXPORT_HEADER:
+        raise ValueError(f"cabecera CSV inesperada: {header}")
+    return header
 
 
 def validate_discovery(records, minimum=35):
