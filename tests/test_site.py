@@ -21,11 +21,18 @@ class SiteTest(unittest.TestCase):
                 self.assertLessEqual(len(html.encode("utf-8")), 300 * 1024)
                 self.assertIn('<html lang="es">', html)
                 self.assertIn('href="#contenido"', html)
-        self.assertIn("50 comisiones descubiertas", self.pages["index.html"])
-        self.assertIn("dato no disponible", self.pages["index.html"])
-        self.assertIn("Sin sesiones cargadas", self.pages["comision-301.html"])
+        index = self.pages["index.html"]
+        self.assertIn("Con composición", index)
+        self.assertIn("Sesiones (XV)", index)
+        self.assertIn("no se estima", index)
+        ficha = self.pages["comision-301.html"]
+        for section in ("Reuniones", "Trabajos", "Resultados", "Coste", "Composición oficial"):
+            self.assertIn(section, ficha)
+        self.assertIn("Sin reuniones cargadas", ficha)
+        self.assertIn("dato no disponible", ficha)
         self.assertIn("SELECT COUNT(*) FROM commissions;", self.pages["metodologia.html"])
         self.assertIn("pendiente_validacion", self.pages["metodologia.html"])
+        self.assertIn("emparej", self.pages["metodologia.html"])
 
     def test_ficha_por_comision_cargada(self):
         import sqlite3
