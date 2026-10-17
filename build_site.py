@@ -64,9 +64,17 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:.15rem solid cu
 .life li{border:1px solid var(--line);border-radius:999px;padding:.2rem .6rem;font-size:.9rem}
 .life .ok{border-color:#0b5}
 .life .na{color:var(--muted)}
-.qa{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:.75rem;margin:1rem 0}
-.qa .q{border:1px solid var(--line);border-radius:.6rem;padding:.8rem;background:var(--card)}
-.qa h3{margin:0 0 .3rem;font-size:1rem}
+.hero{border-bottom:1px solid var(--line);padding-bottom:1rem;margin-bottom:1rem}
+.hero .lead{font-size:1.05rem;margin:.3rem 0}
+.hero .big{font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.7rem 0}
+.chips .chip{padding:.15rem .55rem}
+.ctas{display:flex;flex-wrap:wrap;gap:.5rem;margin:.8rem 0}
+.cta{display:inline-block;border:1px solid var(--accent);border-radius:999px;padding:.35rem .9rem;text-decoration:none;color:var(--accent);font-weight:600}
+.cta.primary{background:var(--accent);color:#fff}
+.qa-list .item{border-bottom:1px solid var(--line);padding:.8rem 0}
+.qa-list h2{font-size:1.05rem;margin:0 0 .25rem}
+.qa-list p{margin:0 0 .3rem}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
@@ -658,23 +666,75 @@ def build(root=BASE):
         f"<li>{html.escape(name)} · {sesiones} sesiones · {aprobadas} aprobadas</li>"
         for name, sesiones, aprobadas in investig
     )
-    preguntas_html = f"""
-<div class="qa">
-<div class="q"><h3>¿Cuántas comisiones hay?</h3>
-<p><b>{discovered}</b> comisiones descubiertas; <b>{len(with_composition)}</b> con composición cargada ({composition_rows} registros).</p></div>
-<div class="q"><h3>¿Qué comisiones no se reunieron?</h3>
-<p><b>{len(no_sessions)}</b> sin sesiones en el opendata: {no_sessions_html}.</p></div>
-<div class="q"><h3>¿Quién participa más?</h3>
-<p>El grupo con más intervenciones es <b>{html.escape(GROUP_LABELS.get(top_group, top_group))}</b> ({top_group_n}). El ranking por persona, con denominadores, está en <a href="personas.html">Personas</a>. «Participa» = intervenciones, no asistencia.</p></div>
-<div class="q"><h3>¿Qué comisiones de investigación llegaron a conclusiones?</h3>
-<p>⚪ la fuente no publica dictamen/conclusiones por comisión. Se muestra su actividad y sus iniciativas aprobadas:</p>
-<ul>{investig_html or '<li>sin datos</li>'}</ul></div>
-<div class="q"><h3>¿Qué comisión aprobó más iniciativas?</h3>
-<p><b>{html.escape(top_appr_name)}</b> ({top_appr_n} aprobadas). La ley publicada no se atribuye por comisión (⚪ no consta).</p></div>
-<div class="q"><h3>¿Cuánto trabajo hay en total?</h3>
-<p><b>{total_sesiones}</b> sesiones, <b>{total_iniciativas}</b> iniciativas y <b>{total_aprobadas}</b> aprobadas con comisión atribuida. Coste: 🔴 no se publica (tarifas en validación).</p></div>
-</div>
-"""
+    faq = [
+        (
+            "¿Cuántas comisiones hay?",
+            f"<b>{discovered}</b> comisiones descubiertas; <b>{len(with_composition)}</b> con composición cargada ({composition_rows} registros).",
+            f"{discovered} comisiones descubiertas; {len(with_composition)} con composición cargada.",
+            ("goto", "comisiones"),
+            "Ver comisiones",
+        ),
+        (
+            "¿Qué comisiones no se reunieron?",
+            f"<b>{len(no_sessions)}</b> sin sesiones en el opendata: {no_sessions_html}.",
+            f"{len(no_sessions)} comisiones sin sesiones en el opendata.",
+            ("goto", "comisiones"),
+            "Ver comisiones",
+        ),
+        (
+            "¿Quién participa más?",
+            f"El grupo con más intervenciones es <b>{html.escape(GROUP_LABELS.get(top_group, top_group))}</b> ({top_group_n}); el ranking por persona, con denominadores, está en <a href=\"personas.html\">Personas</a>. «Participa» = intervenciones, no asistencia.",
+            f"El grupo con más intervenciones es {GROUP_LABELS.get(top_group, top_group)} ({top_group_n}). Participar = intervenciones, no asistencia.",
+            ("href", "personas.html"),
+            "Buscar persona",
+        ),
+        (
+            "¿Qué comisiones de investigación llegaron a conclusiones?",
+            "⚪ la fuente no publica dictamen/conclusiones por comisión. Se muestra su actividad y sus iniciativas aprobadas: "
+            + investig_html,
+            "La fuente no publica dictamen ni conclusiones por comisión.",
+            ("goto", "comisiones"),
+            "Ver comisiones",
+        ),
+        (
+            "¿Qué comisión aprobó más iniciativas?",
+            f"<b>{html.escape(top_appr_name)}</b> ({top_appr_n} aprobadas). La ley publicada no se atribuye por comisión (⚪ no consta).",
+            f"{top_appr_name} ({top_appr_n} iniciativas aprobadas).",
+            ("goto", "resumen"),
+            "Ver gráficos",
+        ),
+        (
+            "¿Cuánto trabajo hay en total?",
+            f"<b>{total_sesiones}</b> sesiones, <b>{total_iniciativas}</b> iniciativas y <b>{total_aprobadas}</b> aprobadas con comisión atribuida. Coste: 🔴 no se publica (tarifas en validación).",
+            f"{total_sesiones} sesiones, {total_iniciativas} iniciativas y {total_aprobadas} aprobadas.",
+            ("goto", "resumen"),
+            "Ver gráficos",
+        ),
+    ]
+
+    def _faq_link(target, label):
+        kind, value = target
+        if kind == "href":
+            return f'<a href="{value}">{html.escape(label)} →</a>'
+        return f'<a href="#" data-goto="{value}">{html.escape(label)} →</a>'
+
+    faq_items = "".join(
+        f'<div class="item"><h2>{html.escape(question)}</h2>'
+        f"<p>{answer}</p>{_faq_link(target, label)}</div>"
+        for question, answer, _plain, target, label in faq
+    )
+    faq_json = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": question,
+                "acceptedAnswer": {"@type": "Answer", "text": plain},
+            }
+            for question, _answer, plain, _target, _label in faq
+        ],
+    }
     index_body = f"""
 <nav class=tabs aria-label="Secciones">
 <button data-tab="preguntas" class="on">Preguntas</button>
@@ -685,13 +745,34 @@ def build(root=BASE):
 <a href="metodologia.html">Metodología</a>
 </nav>
 <section id="preguntas">
-<h1>Comisiones: 6 preguntas</h1>
-<p class="muted">Respuestas directas con los datos cargados; cada cifra indica su estado (🟢/🔵/⚪/🔴).</p>
-{preguntas_html}
+<div class="hero">
+<h1>Comisiones del Congreso: 6 preguntas con respuesta</h1>
+<p class="lead">XV legislatura, disuelta el 6-oct-2026. <span class="big">{discovered} comisiones · {total_sesiones} sesiones · {total_aprobadas} iniciativas aprobadas</span>.</p>
+<div class="chips">
+<span class="chip"><b>{discovered}</b> comisiones</span>
+<span class="chip"><b>{total_sesiones}</b> sesiones</span>
+<span class="chip"><b>{total_iniciativas}</b> iniciativas</span>
+<span class="chip"><b>{total_aprobadas}</b> aprobadas</span>
+<span class="chip"><b>{total_leyes}</b> leyes (sin atribuir)</span>
+<span class="chip">🔴 coste no publicado</span>
+</div>
+<div class="ctas">
+<a class="cta primary" href="#" data-goto="comisiones">Explorar comisiones</a>
+<a class="cta" href="personas.html">Buscar persona</a>
+</div>
+<p class="muted">Fecha de corte: {CUTOFF}. Lo que falta se marca (⚪), no se estima.</p>
+</div>
+<div class="qa-list">
+{faq_items}
+</div>
+<h2>Calendario de actividad <span class=chip>🔵 derivado</span></h2>
+<p class="muted">Cada celda = sesiones distintas de esa comisión en ese mes. Se ve cuándo dejó de reunirse cada una.</p>
+{calendar_chart}
 {DATA_LEGEND}
+<script type="application/ld+json">{json.dumps(faq_json, ensure_ascii=False)}</script>
 </section>
 <section id="resumen" hidden>
-<h1>Comisiones: actividad, trabajos, resultados y coste</h1>
+<h2>Resumen: actividad, trabajos, resultados y coste</h2>
 <p>Congreso de los Diputados, XV legislatura (disuelta el 6-oct-2026). Fecha de corte: {CUTOFF}.
 Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
 <div class=kpis>
@@ -710,9 +791,6 @@ tarifas estén pendientes de validación.</p>
 <h2>Sesiones por comisión <span class=chip>🔵 derivado</span></h2>
 <p class="muted">Top 15 por número de fechas de reunión. La lista completa, en la pestaña «Comisiones».</p>
 {chart}
-<h2>Calendario de actividad <span class=chip>🔵 derivado</span></h2>
-<p class="muted">Cada celda = sesiones distintas de esa comisión en ese mes. Se ve cuándo dejó de reunirse cada una.</p>
-{calendar_chart}
 <h2>Grupos: miembros en comisiones vs intervenciones <span class=chip>🔵 derivado</span></h2>
 <p class="muted">«Miembros» = personas distintas con cargo en comisiones (proxy, no escaños de la Cámara). «Intervenciones» = participación, no asistencia.</p>
 {groups_chart}
@@ -737,15 +815,16 @@ tarifas estén pendientes de validación.</p>
 const tabs=[...document.querySelectorAll('[data-tab]')];
 const secs={{preguntas:document.getElementById('preguntas'),resumen:document.getElementById('resumen'),comisiones:document.getElementById('comisiones'),cruces:document.getElementById('cruces')}};
 tabs.forEach(b=>b.addEventListener('click',()=>{{tabs.forEach(x=>x.classList.toggle('on',x===b));for(const k in secs){{secs[k].hidden=k!==b.dataset.tab;}}}}));
+document.querySelectorAll('[data-goto]').forEach(a=>a.addEventListener('click',e=>{{e.preventDefault();const b=document.querySelector('[data-tab="'+a.dataset.goto+'"]');if(b)b.click();}}));
 const q=document.querySelector('[data-filter]');
 if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(const row of document.querySelectorAll('#comisiones tbody tr')){{row.hidden=needle && !row.textContent.toLowerCase().includes(needle);}}}});}}
 </script>
 """
     (web / "index.html").write_text(
         _page(
-            "Comisiones: actividad y resultados",
+            "Comisiones del Congreso: actividad, comparecencias y resultados (XV legislatura)",
             index_body,
-            "Observatorio de comisiones del Congreso: constitución, sesiones, iniciativas, leyes y coste.",
+            "Qué comisiones hay, cuáles se reunieron, quién participa y qué se aprobó en la XV legislatura. Datos oficiales con fecha de corte y cobertura declarada.",
         ),
         encoding="utf-8",
     )
