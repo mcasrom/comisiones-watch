@@ -64,6 +64,9 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:.15rem solid cu
 .life li{border:1px solid var(--line);border-radius:999px;padding:.2rem .6rem;font-size:.9rem}
 .life .ok{border-color:#0b5}
 .life .na{color:var(--muted)}
+.qa{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:.75rem;margin:1rem 0}
+.qa .q{border:1px solid var(--line);border-radius:.6rem;padding:.8rem;background:var(--card)}
+.qa h3{margin:0 0 .3rem;font-size:1rem}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
@@ -563,14 +566,61 @@ def build(root=BASE):
     approved_chart = _svg_approved(
         [(name, stats.get(source_id, {}).get("aprobadas", 0)) for _, _, name, source_id, _ in rows]
     )
+    group_counts = {}
+    for (speaker,) in con.execute(
+        "SELECT orador FROM intervenciones WHERE commission_source_id IS NOT NULL AND orador IS NOT NULL"
+    ):
+        match = re.search(r"\(([^)]+)\)\s*$", speaker or "")
+        if match and match.group(1) in GROUP_LABELS:
+            group_counts[match.group(1)] = group_counts.get(match.group(1), 0) + 1
+    top_group, top_group_n = max(group_counts.items(), key=lambda kv: kv[1], default=("—", 0))
+    top_appr_name, top_appr_n = max(
+        ((name, stats.get(code, {}).get("aprobadas", 0)) for _, _, name, code, _ in rows),
+        key=lambda item: item[1], default=("—", 0),
+    )
+    no_sessions = [name for _, _, name, code, _ in rows if not stats.get(code, {}).get("sessions")]
+    total_aprobadas = sum(s.get("aprobadas", 0) for s in stats.values())
+    investig = [
+        (name, len(stats.get(code, {}).get("sessions", [])), stats.get(code, {}).get("aprobadas", 0))
+        for _, kind, name, code, _ in rows if kind == "investigacion"
+    ]
+    no_sessions_html = ", ".join(html.escape(name) for name in no_sessions) or "ninguna"
+    investig_html = "".join(
+        f"<li>{html.escape(name)} · {sesiones} sesiones · {aprobadas} aprobadas</li>"
+        for name, sesiones, aprobadas in investig
+    )
+    preguntas_html = f"""
+<div class="qa">
+<div class="q"><h3>¿Cuántas comisiones hay?</h3>
+<p><b>{discovered}</b> comisiones descubiertas; <b>{len(with_composition)}</b> con composición cargada ({composition_rows} registros).</p></div>
+<div class="q"><h3>¿Qué comisiones no se reunieron?</h3>
+<p><b>{len(no_sessions)}</b> sin sesiones en el opendata: {no_sessions_html}.</p></div>
+<div class="q"><h3>¿Quién participa más?</h3>
+<p>El grupo con más intervenciones es <b>{html.escape(GROUP_LABELS.get(top_group, top_group))}</b> ({top_group_n}). El ranking por persona, con denominadores, está en <a href="personas.html">Personas</a>. «Participa» = intervenciones, no asistencia.</p></div>
+<div class="q"><h3>¿Qué comisiones de investigación llegaron a conclusiones?</h3>
+<p>⚪ la fuente no publica dictamen/conclusiones por comisión. Se muestra su actividad y sus iniciativas aprobadas:</p>
+<ul>{investig_html or '<li>sin datos</li>'}</ul></div>
+<div class="q"><h3>¿Qué comisión aprobó más iniciativas?</h3>
+<p><b>{html.escape(top_appr_name)}</b> ({top_appr_n} aprobadas). La ley publicada no se atribuye por comisión (⚪ no consta).</p></div>
+<div class="q"><h3>¿Cuánto trabajo hay en total?</h3>
+<p><b>{total_sesiones}</b> sesiones, <b>{total_iniciativas}</b> iniciativas y <b>{total_aprobadas}</b> aprobadas con comisión atribuida. Coste: 🔴 no se publica (tarifas en validación).</p></div>
+</div>
+"""
     index_body = f"""
 <nav class=tabs aria-label="Secciones">
-<button data-tab="resumen" class="on">Resumen</button>
+<button data-tab="preguntas" class="on">Preguntas</button>
+<button data-tab="resumen">Resumen</button>
 <button data-tab="comisiones">Comisiones</button>
 <a href="personas.html">Personas</a>
 <a href="metodologia.html">Metodología</a>
 </nav>
-<section id="resumen">
+<section id="preguntas">
+<h1>Comisiones: 6 preguntas</h1>
+<p class="muted">Respuestas directas con los datos cargados; cada cifra indica su estado (🟢/🔵/⚪/🔴).</p>
+{preguntas_html}
+{DATA_LEGEND}
+</section>
+<section id="resumen" hidden>
 <h1>Comisiones: actividad, trabajos, resultados y coste</h1>
 <p>Congreso de los Diputados, XV legislatura (disuelta el 6-oct-2026). Fecha de corte: {CUTOFF}.
 Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
@@ -610,7 +660,7 @@ tarifas estén pendientes de validación.</p>
 <p><a href="personas.html">Personas y comisiones</a> · <a href="metodologia.html">Metodología y límites</a></p>
 <script>
 const tabs=[...document.querySelectorAll('[data-tab]')];
-const secs={{resumen:document.getElementById('resumen'),comisiones:document.getElementById('comisiones')}};
+const secs={{preguntas:document.getElementById('preguntas'),resumen:document.getElementById('resumen'),comisiones:document.getElementById('comisiones')}};
 tabs.forEach(b=>b.addEventListener('click',()=>{{tabs.forEach(x=>x.classList.toggle('on',x===b));for(const k in secs){{secs[k].hidden=k!==b.dataset.tab;}}}}));
 const q=document.querySelector('[data-filter]');
 if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(const row of document.querySelectorAll('#comisiones tbody tr')){{row.hidden=needle && !row.textContent.toLowerCase().includes(needle);}}}});}}
