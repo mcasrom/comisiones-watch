@@ -1020,20 +1020,20 @@ def build(root=BASE):
     index_body = f"""
 <section id="preguntas">
 <div class="hero">
-<h1>Comisiones del Congreso: 6 preguntas con respuesta</h1>
-<p class="lead">XV legislatura, disuelta el 6-oct-2026. <span class="big">{discovered} comisiones · {total_sesiones} sesiones · {total_aprobadas} iniciativas aprobadas</span>.</p>
+<h1>Comisiones del Congreso: actividad y resultados de la XV legislatura</h1>
+<p class="lead">XV legislatura, disuelta el 6 de octubre de 2026. <span class="big">{discovered} órganos identificados · {total_sesiones} fechas de reunión registradas · {total_iniciativas} iniciativas atribuidas · {total_aprobadas} con resultado aprobado</span>.</p>
 <div class="chips">
-<span class="chip"><b>{discovered}</b> comisiones</span>
-<span class="chip"><b>{total_sesiones}</b> sesiones</span>
-<span class="chip"><b>{total_iniciativas}</b> iniciativas</span>
+<span class="chip"><b>{discovered}</b> órganos</span>
+<span class="chip"><b>{total_sesiones}</b> fechas de reunión</span>
+<span class="chip"><b>{total_iniciativas}</b> iniciativas atribuidas</span>
 <span class="chip"><b>{total_aprobadas}</b> aprobadas</span>
-<span class="chip"><b>{total_leyes}</b> leyes (sin atribuir)</span>
 </div>
 <div class="ctas">
 <a class="cta primary" href="#" data-goto="comisiones">Explorar comisiones</a>
 <a class="cta" href="personas.html">Buscar persona</a>
 </div>
-<p class="muted">Fecha de corte: {CUTOFF}. Lo que falta se marca (⚪), no se estima.</p>
+<p class="muted">Fecha de corte: {CUTOFF}. Incluye 23 legislativas, 11 permanentes no legislativas, 8 mixtas (Congreso-Senado) y 8 de investigación.
+Las cifras de iniciativas son registros del inventario, no la tasa de éxito legislativo. El coste no se publica; el recuento de leyes está en depuración (la fuente mezcla leyes, reales decretos-ley, resoluciones y correcciones).</p>
 </div>
 <div class="qa-list">
 {faq_items}
@@ -1046,16 +1046,17 @@ def build(root=BASE):
 <p>Congreso de los Diputados, XV legislatura (disuelta el 6-oct-2026). Fecha de corte: {CUTOFF}.
 Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
 <div class=kpis>
-{_kpi("Comisiones", discovered)}
+{_kpi("Órganos", discovered)}
 {_kpi("Con composición", len(with_composition), f"{composition_rows} registros")}
-{_kpi("Sesiones (XV)", total_sesiones)}
-{_kpi("Iniciativas (XV)", total_iniciativas, "por comisión competente")}
-{_kpi("Leyes aprobadas", total_leyes)}
+{_kpi("Fechas de reunión (XV)", total_sesiones)}
+{_kpi("Iniciativas atribuidas (XV)", total_iniciativas, "por comisión competente")}
+{_unavailable("Leyes aprobadas", "en depuración · la fuente mezcla tipos")}
 </div>
 <p class="muted">Las sesiones se cuentan por fechas distintas de reunión del órgano en el
-volcado de intervenciones ({total_intervenciones:,} intervenciones cargadas). Las iniciativas
-son las que tienen cada comisión como competente. El coste no se publica mientras las
-tarifas estén pendientes de validación.</p>
+volcado de intervenciones ({total_intervenciones:,} intervenciones cargadas); pueden no coincidir con el
+recuento oficial de sesiones. Las iniciativas son las que tienen cada comisión como competente
+(27/225 no es la tasa de éxito legislativo). El coste no se publica. El recuento de leyes no se
+publica: el volcado mezcla leyes, reales decretos-ley, resoluciones y correcciones de errores.</p>
 {DATA_LEGEND}
 <h2>Sesiones por comisión <span class=chip>🔵 derivado</span></h2>
 <p class="muted">Top 15 por número de fechas de reunión. La lista completa, en la pestaña «Comisiones».</p>
@@ -1125,8 +1126,9 @@ if(tabla){{
         f"Observatorio de comisiones del Congreso (XV legislatura, corte {CUTOFF}).\n"
         f"{discovered} comisiones descubiertas; {len(with_composition)} con composición"
         f" ({composition_rows} registros).\n"
-        f"{total_sesiones} sesiones, {total_iniciativas} iniciativas y {total_leyes}"
-        " leyes aprobadas cargadas del opendata.\n"
+        f"{total_sesiones} fechas de reunión, {total_iniciativas} iniciativas atribuidas"
+        f" y {total_aprobadas} con resultado aprobado. El recuento de leyes está en depuración"
+        " (la fuente mezcla tipos y correcciones).\n"
         f"Fuentes: {LISTING_SOURCE} ; {INICIATIVAS_SOURCE} ; {INTERVENCIONES_SOURCE} ;"
         f" CSV de composición del Congreso ; {TARIFF_SOURCES['congreso']} .\n",
         encoding="utf-8",
@@ -1437,8 +1439,8 @@ intervenciones (<a href="{INTERVENCIONES_SOURCE}">opendata/intervenciones</a>). 
 <li><b>Actividad</b>: iniciativas cuya comisión competente es la comisión
 (<a href="{INICIATIVAS_SOURCE}">opendata/iniciativas</a>: proyectos de ley,
 proposiciones de ley y propuestas de reforma).</li>
-<li><b>Resultados</b>: situación actual de esas iniciativas y las leyes aprobadas
-({total_leyes} leyes de la XV).</li>
+<li><b>Resultados</b>: situación actual de esas iniciativas y las que figuran con resultado aprobado.
+El recuento de leyes no se publica: la fuente mezcla leyes, reales decretos-ley, resoluciones y correcciones.</li>
 <li><b>Coste</b>: mensualidad oficial × meses × 14/12. <b>No se publica</b> mientras las
 tarifas estén en <code>pendiente_validacion</code>.</li>
 </ul>
@@ -1462,7 +1464,7 @@ atribuye a ciegas.</p>
 <ul>
 <li>Senado con acceso automatizado bloqueado; sus tarifas no se han podido descargar.</li>
 <li>Una «reunión» cuenta por fecha; no distingue sesión ordinaria de extraordinaria.</li>
-<li>Las leyes aprobadas no se reparten por comisión en la fuente; se muestran en conjunto.</li>
+<li>Las leyes no se reparten por comisión en la fuente y el volcado mezcla tipos; no se publica un recuento.</li>
 <li>Comisiones de investigación solapadas (suministro eléctrico del 28-abr-2025) pueden
 compartir etiqueta en el opendata: si el emparejado es ambiguo, queda registrado.</li>
 </ul>
