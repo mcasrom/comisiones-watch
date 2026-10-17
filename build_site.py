@@ -13,6 +13,7 @@ como no disponible; nada se inventa. Reejecutable, sin red.
 import csv
 import html
 import json
+import re
 import shutil
 import sqlite3
 from pathlib import Path
@@ -365,6 +366,111 @@ def _svg_sessions(rows, limit=15):
     )
 
 
+CONGRESS_GROUPS = ["GP", "GS", "GVOX", "GSUMAR", "GR", "GJxCAT", "GMx", "GEH Bildu"]
+GROUP_LABELS = {
+    "GP": "Populares", "GS": "Socialistas", "GVOX": "VOX", "GSUMAR": "Sumar",
+    "GR": "Republicano", "GJxCAT": "Junts", "GMx": "Mixto", "GEH Bildu": "EH Bildu",
+}
+
+
+def _months(start, end):
+    year, month = int(start[:4]), int(start[5:7])
+    ey, em = int(end[:4]), int(end[5:7])
+    out = []
+    while (year, month) <= (ey, em):
+        out.append(f"{year:04d}-{month:02d}")
+        month += 1
+        if month > 12:
+            month, year = 1, year + 1
+    return out
+
+
+def _svg_calendar(con):
+    """Heatmap comisión × mes (sesiones distintas por mes)."""
+    data = {}
+    for code, month, n in con.execute(
+        "SELECT commission_source_id, substr(sesion,1,7), COUNT(DISTINCT sesion)"
+        " FROM intervenciones WHERE commission_source_id IS NOT NULL AND sesion IS NOT NULL"
+        " GROUP BY 1,2"
+    ):
+        data.setdefault(code, {})[month] = n
+    names = {code: name for code, name in con.execute("SELECT source_id, name FROM commissions")}
+    codes = sorted(data, key=lambda code: -sum(data[code].values()))
+    if not codes:
+        return '<p class="muted">Sin sesiones cargadas.</p>'
+    months = _months("2023-08", "2026-09")
+    left, top, cw, ch = 210, 30, 15, 15
+    width = left + len(months) * cw + 10
+    height = top + len(codes) * ch + 30
+    parts = []
+    for index, month in enumerate(months):
+        if month.endswith("-01") or index == 0:
+            parts.append(
+                f'<text x="{left + index * cw}" y="12" font-size="9" fill="#64748b" '
+                f'transform="rotate(-45 {left + index * cw} 12)">{month[2:]}</text>'
+            )
+    for row, code in enumerate(codes):
+        y = top + row * ch
+        label = html.escape(names.get(code, code)[:30])
+        parts.append(f'<text x="0" y="{y + 11}" font-size="9" fill="#334155">{label}</text>')
+        for col, month in enumerate(months):
+            n = data[code].get(month, 0)
+            if n:
+                opacity = min(1.0, 0.20 + n / 5 * 0.80)
+                fill = f'fill="#0b5" opacity="{opacity:.2f}"'
+            else:
+                fill = 'fill="#eef2f3"'
+            parts.append(f'<rect x="{left + col * cw}" y="{y}" width="{cw - 2}" height="{ch - 2}" {fill}/>')
+    return (
+        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
+        f'aria-label="Sesiones por comisión y mes">' + "".join(parts) + "</svg>"
+    )
+
+
+def _svg_groups(con):
+    """Miembros en comisiones vs intervenciones, por grupo del Congreso."""
+    groups = set(CONGRESS_GROUPS)
+    seats = {}
+    for party, n in con.execute(
+        "SELECT party, COUNT(DISTINCT full_name) FROM composition_raw GROUP BY party"
+    ):
+        if party in groups:
+            seats[party] = n
+    interventions = {}
+    for (speaker,) in con.execute(
+        "SELECT orador FROM intervenciones WHERE commission_source_id IS NOT NULL AND orador IS NOT NULL"
+    ):
+        match = re.search(r"\(([^)]+)\)\s*$", speaker or "")
+        party = match.group(1) if match else None
+        if party in groups:
+            interventions[party] = interventions.get(party, 0) + 1
+    order = sorted(groups, key=lambda g: -interventions.get(g, 0))
+    if not any(interventions.get(g) for g in order):
+        return '<p class="muted">Sin datos de intervenciones por grupo.</p>'
+    max_v = max([seats.get(g, 0) for g in order] + [interventions.get(g, 0) for g in order]) or 1
+    row_h, gap, left, width = 34, 10, 120, 620
+    height = 10 + len(order) * (row_h + gap)
+    parts = []
+    for index, group in enumerate(order):
+        y = 6 + index * (row_h + gap)
+        label = html.escape(GROUP_LABELS.get(group, group))
+        parts.append(f'<text x="0" y="{y + 13}" font-size="12" fill="#334155">{label}</text>')
+        for base, value, color, tag in (
+            (y, seats.get(group, 0), "#94a3b8", "miembros"),
+            (y + 15, interventions.get(group, 0), "#0b5", "intervenciones"),
+        ):
+            bar_w = max(3, round(value / max_v * width))
+            parts.append(f'<rect x="{left}" y="{base}" width="{bar_w}" height="12" rx="2" fill="{color}"/>')
+            parts.append(
+                f'<text x="{left + bar_w + 5}" y="{base + 10}" font-size="10" fill="#0f172a">'
+                f'{value} {tag}</text>'
+            )
+    return (
+        f'<svg viewBox="0 0 {left + width + 120} {height}" width="100%" role="img" '
+        f'aria-label="Miembros e intervenciones por grupo">' + "".join(parts) + "</svg>"
+    )
+
+
 def build(root=BASE):
     con = build_db(root)
     web = root / "web"
@@ -424,6 +530,8 @@ def build(root=BASE):
     chart = _svg_sessions(
         [(name, len(stats.get(source_id, {}).get("sessions", []))) for _, _, name, source_id, _ in rows]
     )
+    groups_chart = _svg_groups(con)
+    calendar_chart = _svg_calendar(con)
     index_body = f"""
 <nav class=tabs aria-label="Secciones">
 <button data-tab="resumen" class="on">Resumen</button>
@@ -451,6 +559,12 @@ tarifas estén pendientes de validación.</p>
 <h2>Sesiones por comisión <span class=chip>🔵 derivado</span></h2>
 <p class="muted">Top 15 por número de fechas de reunión. La lista completa, en la pestaña «Comisiones».</p>
 {chart}
+<h2>Calendario de actividad <span class=chip>🔵 derivado</span></h2>
+<p class="muted">Cada celda = sesiones distintas de esa comisión en ese mes. Se ve cuándo dejó de reunirse cada una.</p>
+{calendar_chart}
+<h2>Grupos: miembros en comisiones vs intervenciones <span class=chip>🔵 derivado</span></h2>
+<p class="muted">«Miembros» = personas distintas con cargo en comisiones (proxy, no escaños de la Cámara). «Intervenciones» = participación, no asistencia.</p>
+{groups_chart}
 </section>
 <section id="comisiones" hidden>
 <h2>Comisiones</h2>
