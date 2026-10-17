@@ -81,6 +81,14 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:.15rem solid cu
 footer.site{border-top:1px solid var(--line);margin-top:2rem;padding:1.5rem 1rem;text-align:center;color:var(--muted);font-size:.9rem}
 footer.site .wrap{max-width:68rem;margin:auto}
 footer.site a{color:var(--accent)}
+header.site{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+header.site .wrap{max-width:68rem;margin:auto;display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;flex-wrap:wrap}
+header.site .brand{font-weight:700;text-decoration:none;color:var(--fg);font-size:1.05rem}
+header.site .brand .sub{color:var(--muted);font-weight:400;font-size:.85rem}
+header.site nav{display:flex;flex-wrap:wrap;gap:.55rem;margin-left:auto}
+header.site nav a,header.site nav button{border:0;background:none;color:var(--fg);font:inherit;font-size:.9rem;cursor:pointer;text-decoration:none;padding:.15rem .3rem}
+header.site nav a:hover,header.site nav button:hover{color:var(--accent)}
+header.site nav .on{color:var(--accent);font-weight:700}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
@@ -107,6 +115,15 @@ GROUP_NAMES = {
     "SGPERB": "Grupo Parlamentario Esquerra Republicana-EH Bildu (Senado)",
     "SGPV": "Grupo Parlamentario Vasco (Senado)",
 }
+INCOMPLETE = {
+    "307": "1 sesión registrada; posible dato incompleto",
+    "311": "0 sesiones registradas; posible dato incompleto",
+    "313": "0 sesiones registradas; posible dato incompleto",
+    "314": "0 sesiones registradas; posible dato incompleto",
+    "363": "0 sesiones registradas; posible dato incompleto",
+    "364": "0 sesiones registradas; posible dato incompleto",
+    "369": "0 sesiones registradas; posible dato incompleto",
+}
 OVERLAPS = {
     "362": "Comisión homónima/solapada: 362, 363 y 364 abordan el apagón del 28-abr-2025.",
     "363": "Comisión homónima/solapada: 362, 363 y 364 abordan el apagón del 28-abr-2025.",
@@ -118,7 +135,7 @@ DATA_LEGEND = ('<p class="muted">Estado del dato: 🟢 oficial · 🔵 derivado 
                '🟡 pendiente de validación · ⚪ no consta en la fuente · 🔴 no se publica (decisión editorial).</p>')
 
 
-def _page(title, body, description, *, url="", breadcrumbs=None, og_image="/og.png", noindex=False):
+def _page(title, body, description, *, url="", breadcrumbs=None, og_image="/og.png", noindex=False, is_index=False):
     canonical = SITE + url if url else SITE + "/"
     og = SITE + og_image
     robots = '<meta name="robots" content="noindex,follow">' if noindex else ""
@@ -133,6 +150,34 @@ def _page(title, body, description, *, url="", breadcrumbs=None, og_image="/og.p
             '<script type="application/ld+json">{"@context":"https://schema.org",'
             '"@type":"BreadcrumbList","itemListElement":[' + items + "]}</script>"
         )
+    if is_index:
+        section_nav = (
+            '<button data-goto="preguntas" class="on">Preguntas</button>'
+            '<button data-goto="resumen">Resumen</button>'
+            '<button data-goto="comisiones">Comisiones</button>'
+            '<button data-goto="cruces">Cruces</button>'
+        )
+    else:
+        section_nav = (
+            '<a href="index.html#preguntas">Preguntas</a>'
+            '<a href="index.html#resumen">Resumen</a>'
+            '<a href="index.html#comisiones">Comisiones</a>'
+            '<a href="index.html#cruces">Cruces</a>'
+        )
+    header = f"""
+<header class="site">
+<div class="wrap">
+<a class="brand" href="index.html">Comisiones <span class="sub">XV legislatura</span></a>
+<span class="chip">corte {html.escape(CUTOFF)}</span>
+<nav aria-label="Secciones">
+{section_nav}
+<a href="personas.html">Personas</a>
+<a href="metodologia.html">Metodología</a>
+<a href="publicable.html">Qué es publicable</a>
+</nav>
+</div>
+</header>
+"""
     footer = f"""
 <footer class="site">
 <div class="wrap">
@@ -176,6 +221,7 @@ Datos oficiales del Congreso; lo que falta se marca, no se estima. Sin cookies n
 </head>
 <body>
 <a class="skip" href="#contenido">Saltar al contenido</a>
+{header}
 <main id="contenido">
 {body}
 </main>
@@ -870,8 +916,8 @@ def build(root=BASE):
         ),
         (
             "¿Qué comisiones no se reunieron?",
-            f"<b>{len(no_sessions)}</b> sin sesiones en el opendata: {no_sessions_html}.",
-            f"{len(no_sessions)} comisiones sin sesiones en el opendata.",
+            f"<b>{len(no_sessions)}</b> sin sesiones en el opendata (posible dato incompleto en algunas): {no_sessions_html}.",
+            f"{len(no_sessions)} comisiones sin sesiones en el opendata (posible dato incompleto en algunas).",
             ("goto", "comisiones"),
             "Ver comisiones",
         ),
@@ -932,14 +978,6 @@ def build(root=BASE):
     _write_og(web, discovered, total_sesiones, total_aprobadas)
     _write_csv(web, rows, stats, coverage)
     index_body = f"""
-<nav class=tabs aria-label="Secciones">
-<button data-tab="preguntas" class="on">Preguntas</button>
-<button data-tab="resumen">Resumen</button>
-<button data-tab="comisiones">Comisiones</button>
-<button data-tab="cruces">Cruces</button>
-<a href="personas.html">Personas</a>
-<a href="metodologia.html">Metodología</a>
-</nav>
 <section id="preguntas">
 <div class="hero">
 <h1>Comisiones del Congreso: 6 preguntas con respuesta</h1>
@@ -1006,10 +1044,10 @@ tarifas estén pendientes de validación.</p>
 </section>
 <p><a href="personas.html">Personas y comisiones</a> · <a href="metodologia.html">Metodología y límites</a></p>
 <script>
-const tabs=[...document.querySelectorAll('[data-tab]')];
 const secs={{preguntas:document.getElementById('preguntas'),resumen:document.getElementById('resumen'),comisiones:document.getElementById('comisiones'),cruces:document.getElementById('cruces')}};
-tabs.forEach(b=>b.addEventListener('click',()=>{{tabs.forEach(x=>x.classList.toggle('on',x===b));for(const k in secs){{secs[k].hidden=k!==b.dataset.tab;}}}}));
-document.querySelectorAll('[data-goto]').forEach(a=>a.addEventListener('click',e=>{{e.preventDefault();const b=document.querySelector('[data-tab="'+a.dataset.goto+'"]');if(b)b.click();}}));
+function showTab(k){{if(!secs[k])return;for(const s in secs)secs[s].hidden=s!==k;document.querySelectorAll('header.site nav [data-goto]').forEach(b=>b.classList.toggle('on',b.dataset.goto===k));}}
+document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',e=>{{e.preventDefault();showTab(b.dataset.goto);if(history.replaceState)history.replaceState(null,'','#'+b.dataset.goto);}}));
+if(location.hash)showTab(location.hash.slice(1));
 const q=document.querySelector('[data-filter]');
 if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(const row of document.querySelectorAll('#comisiones tbody tr')){{row.hidden=needle && !row.textContent.toLowerCase().includes(needle);}}}});}}
 </script>
@@ -1020,6 +1058,7 @@ if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(c
             index_body,
             "Qué comisiones hay, cuáles se reunieron, quién participa y qué se aprobó en la XV legislatura. Datos oficiales con fecha de corte y cobertura declarada.",
             url="/",
+            is_index=True,
         ),
         encoding="utf-8",
     )
@@ -1096,6 +1135,11 @@ def _write_ficha(con, web, code, stats):
         '<p><span class="chip">🔴 Órgano reservado</span> Comisión de control de los créditos '
         'destinados a gastos reservados: por su naturaleza, su actividad no se publica.</p>'
         if code == "151" else ""
+    )
+    incomplete_html = (
+        f'<p><span class="chip">⚪ Posible dato incompleto</span> {html.escape(INCOMPLETE[code])}. '
+        'No implica que la comisión no se reuniera; pendiente de auditar contra las actas oficiales.</p>'
+        if code in INCOMPLETE else ""
     )
     present_groups = sorted({member[1] for member in members if member[1] in GROUP_NAMES})
     glossary_html = ""
@@ -1188,6 +1232,7 @@ normalizado (<b>{coverage_pct} %</b>) y {pending_roles} sin normalizar.</p>
 <div class="cover" title="Composición normalizada: {office}/{len(members)}"><span style="width:{coverage_pct}%"></span></div>
 {overlap_html}
 {reserved_html}
+{incomplete_html}
 {DATA_LEGEND}
 <h2>Reuniones <span class="chip">🔵 derivado</span></h2>
 <p>{html.escape(sessions_note)} {html.escape(status_note)}</p>
