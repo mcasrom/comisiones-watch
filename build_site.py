@@ -28,6 +28,9 @@ from ingest_opendata import DDL as OPENDATA_DDL
 
 BASE = Path(__file__).resolve().parent
 CUTOFF = "2026-10-12"
+SITE = "https://comisiones.pruebapublica.com"
+REPO = "https://github.com/mcasrom/comisiones-watch"
+SOURCE = "https://www.congreso.es/es/opendata"
 LISTING_SOURCE = "https://www.congreso.es/es/comisiones"
 COMPOSITION_SOURCE = (
     "https://www.congreso.es/es/organos/composicion-en-la-legislatura"
@@ -75,6 +78,9 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:.15rem solid cu
 .qa-list .item{border-bottom:1px solid var(--line);padding:.8rem 0}
 .qa-list h2{font-size:1.05rem;margin:0 0 .25rem}
 .qa-list p{margin:0 0 .3rem}
+footer.site{border-top:1px solid var(--line);margin-top:2rem;padding:1.5rem 1rem;text-align:center;color:var(--muted);font-size:.9rem}
+footer.site .wrap{max-width:68rem;margin:auto}
+footer.site a{color:var(--accent)}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
@@ -112,7 +118,39 @@ DATA_LEGEND = ('<p class="muted">Estado del dato: 🟢 oficial · 🔵 derivado 
                '🟡 pendiente de validación · ⚪ no consta en la fuente · 🔴 no se publica (decisión editorial).</p>')
 
 
-def _page(title, body, description):
+def _page(title, body, description, *, url="", breadcrumbs=None, og_image="/og.png", noindex=False):
+    canonical = SITE + url if url else SITE + "/"
+    og = SITE + og_image
+    robots = '<meta name="robots" content="noindex,follow">' if noindex else ""
+    crumb_json = ""
+    if breadcrumbs:
+        items = ",".join(
+            '{"@type":"ListItem","position":%d,"name":%s,"item":%s}'
+            % (index + 1, json.dumps(name, ensure_ascii=False), json.dumps(SITE + path, ensure_ascii=False))
+            for index, (name, path) in enumerate(breadcrumbs)
+        )
+        crumb_json = (
+            '<script type="application/ld+json">{"@context":"https://schema.org",'
+            '"@type":"BreadcrumbList","itemListElement":[' + items + "]}</script>"
+        )
+    footer = f"""
+<footer class="site">
+<div class="wrap">
+<p><strong>Comisiones</strong> — observatorio de datos abiertos del Congreso de los Diputados ·
+XV legislatura · fecha de corte {html.escape(CUTOFF)}.</p>
+<p>
+<a href="{html.escape(REPO)}" target="_blank" rel="noopener">Código en GitHub</a> ·
+<a href="metodologia.html">Metodología</a> ·
+<a href="personas.html">Personas</a> ·
+<a href="datos.csv">Descargar CSV</a> ·
+<a href="{html.escape(SOURCE)}" target="_blank" rel="noopener">Fuente: Congreso</a> ·
+<a href="https://pruebapublica.com" target="_blank" rel="noopener">Ecosistema Prueba Pública</a>
+</p>
+<p>Código abierto bajo <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPL-3.0</a>.
+Datos oficiales del Congreso; lo que falta se marca, no se estima. Sin cookies ni rastreo.</p>
+</div>
+</footer>
+"""
     return f"""<!doctype html>
 <html lang="es">
 <head>
@@ -120,6 +158,19 @@ def _page(title, body, description):
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}</title>
 <meta name="description" content="{html.escape(description)}">
+<link rel="canonical" href="{html.escape(canonical)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Comisiones">
+<meta property="og:title" content="{html.escape(title)}">
+<meta property="og:description" content="{html.escape(description)}">
+<meta property="og:url" content="{html.escape(canonical)}">
+<meta property="og:image" content="{html.escape(og)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{html.escape(title)}">
+<meta name="twitter:description" content="{html.escape(description)}">
+<meta name="twitter:image" content="{html.escape(og)}">
+{robots}
+{crumb_json}
 <style>{CSS}</style>
 </head>
 <body>
@@ -127,6 +178,7 @@ def _page(title, body, description):
 <main id="contenido">
 {body}
 </main>
+{footer}
 </body>
 </html>
 """
@@ -578,6 +630,74 @@ def _svg_groups(con):
     )
 
 
+def _write_og(web, discovered, sessions, approved):
+    """Tarjeta Open Graph 1200x630 (PIL)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    def font(path, size):
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            return ImageFont.load_default()
+
+    width, height = 1200, 630
+    image = Image.new("RGB", (width, height), "#0f172a")
+    draw = ImageDraw.Draw(image)
+    serif = font("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", 54)
+    sans = font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
+    bold = font("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 44)
+    draw.rectangle([0, 0, width, 10], fill="#0b5")
+    draw.text((70, 110), "Comisiones del Congreso", font=serif, fill="#ffffff")
+    draw.text((70, 190), "XV legislatura · datos abiertos", font=sans, fill="#94a3b8")
+    draw.text((70, 290), f"{discovered} comisiones · {sessions} sesiones", font=bold, fill="#ffffff")
+    draw.text((70, 350), f"{approved} iniciativas aprobadas", font=bold, fill="#0b5")
+    draw.text((70, 460), "Actividad, comparecencias, personas y resultados", font=sans, fill="#cbd5e1")
+    draw.text((70, 540), "comisiones.pruebapublica.com", font=sans, fill="#94a3b8")
+    image.save(web / "og.png")
+
+
+def _write_csv(web, rows, stats, coverage):
+    with open(web / "datos.csv", "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, delimiter=";")
+        writer.writerow(
+            ["codigo", "camara", "tipo", "nombre", "sesiones", "iniciativas",
+             "aprobadas", "comp_normalizada", "comp_total"]
+        )
+        for chamber, kind, name, code, _url in rows:
+            info = stats.get(code, {})
+            norm, total = coverage.get(code, (0, 0))
+            writer.writerow(
+                [code, chamber, kind, name, len(info.get("sessions", [])),
+                 info.get("iniciativas", 0), info.get("aprobadas", 0), norm, total]
+            )
+
+
+def _write_seo_files(web, codes):
+    urls = [("/", "1.0"), ("/personas.html", "0.7"), ("/metodologia.html", "0.6")]
+    urls += [(f"/comision-{code}.html", "0.8") for code in sorted(codes)]
+    entries = "".join(
+        f"<url><loc>{SITE}{path}</loc><lastmod>{CUTOFF}</lastmod>"
+        f"<changefreq>monthly</changefreq><priority>{priority}</priority></url>"
+        for path, priority in urls
+    )
+    (web / "sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        + entries
+        + "</urlset>\n",
+        encoding="utf-8",
+    )
+    (web / "robots.txt").write_text(
+        f"User-agent: *\nAllow: /\n\nSitemap: {SITE}/sitemap.xml\n",
+        encoding="utf-8",
+    )
+    key_path = Path("/var/www/indexnow/indexnow.key")
+    if key_path.exists():
+        (web / "indexnow.key").write_text(
+            key_path.read_text(encoding="utf-8").strip() + "\n", encoding="utf-8"
+        )
+
+
 def build(root=BASE):
     con = build_db(root)
     web = root / "web"
@@ -638,11 +758,19 @@ def build(root=BASE):
         [(name, len(stats.get(source_id, {}).get("sessions", []))) for _, _, name, source_id, _ in rows]
     )
     groups_chart = _svg_groups(con)
-    calendar_chart = _svg_calendar(con)
+    (web / "calendario.svg").write_text(_svg_calendar(con), encoding="utf-8")
+    calendar_chart = (
+        '<img src="calendario.svg" alt="Sesiones por comisión y mes" loading="lazy" '
+        'style="max-width:100%;height:auto">'
+    )
     approved_chart = _svg_approved(
         [(name, stats.get(source_id, {}).get("aprobadas", 0)) for _, _, name, source_id, _ in rows]
     )
-    matrix_chart = _svg_matrix(con)
+    (web / "matriz.svg").write_text(_svg_matrix(con), encoding="utf-8")
+    matrix_chart = (
+        '<img src="matriz.svg" alt="Personas por comisión y rol" loading="lazy" '
+        'style="max-width:100%;height:auto">'
+    )
     group_counts = {}
     for (speaker,) in con.execute(
         "SELECT orador FROM intervenciones WHERE commission_source_id IS NOT NULL AND orador IS NOT NULL"
@@ -735,6 +863,8 @@ def build(root=BASE):
             for question, _answer, plain, _target, _label in faq
         ],
     }
+    _write_og(web, discovered, total_sesiones, total_aprobadas)
+    _write_csv(web, rows, stats, coverage)
     index_body = f"""
 <nav class=tabs aria-label="Secciones">
 <button data-tab="preguntas" class="on">Preguntas</button>
@@ -825,6 +955,7 @@ if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(c
             "Comisiones del Congreso: actividad, comparecencias y resultados (XV legislatura)",
             index_body,
             "Qué comisiones hay, cuáles se reunieron, quién participa y qué se aprobó en la XV legislatura. Datos oficiales con fecha de corte y cobertura declarada.",
+            url="/",
         ),
         encoding="utf-8",
     )
@@ -834,6 +965,7 @@ if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(c
 
     _write_personas(con, web)
     _write_metodologia(con, web, stats, total_leyes)
+    _write_seo_files(web, sorted(stats))
     (web / "llms.txt").write_text(
         f"Observatorio de comisiones del Congreso (XV legislatura, corte {CUTOFF}).\n"
         f"{discovered} comisiones descubiertas; {len(with_composition)} con composición"
@@ -1049,6 +1181,8 @@ intervenciones del opendata del Congreso.</p>
             f"{name}: actividad y resultados",
             ficha_body,
             "Ficha de comisión: constitución, reuniones, trabajos, resultados y composición.",
+            url=f"/comision-{code}.html",
+            breadcrumbs=[("Inicio", "/"), ("Comisiones", "/"), (name, f"/comision-{code}.html")],
         ),
         encoding="utf-8",
     )
@@ -1112,6 +1246,8 @@ if(q){{q.addEventListener('input',()=>{{const n=q.value.toLowerCase();for(const 
             "Personas: cargos y comisiones",
             body,
             "Personas con cargo o adscripción en las comisiones del Congreso, con sus comisiones.",
+            url="/personas.html",
+            breadcrumbs=[("Inicio", "/"), ("Personas", "/personas.html")],
         ),
         encoding="utf-8",
     )
@@ -1179,6 +1315,8 @@ compartir etiqueta en el opendata: si el emparejado es ambiguo, queda registrado
             "Metodología del observatorio de comisiones",
             method_body,
             "Cómo se calcula cada cifra y qué falta.",
+            url="/metodologia.html",
+            breadcrumbs=[("Inicio", "/"), ("Metodología", "/metodologia.html")],
         ),
         encoding="utf-8",
     )
