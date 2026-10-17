@@ -536,8 +536,9 @@ def _svg_calendar(con):
                 fill = 'fill="#eef2f3"'
             parts.append(f'<rect x="{left + col * cw}" y="{y}" width="{cw - 2}" height="{ch - 2}" {fill}/>')
     return (
-        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
-        f'aria-label="Sesiones por comisión y mes">' + "".join(parts) + "</svg>"
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
+        f'width="{width}" height="{height}" role="img" aria-label="Sesiones por comisión y mes">'
+        + "".join(parts) + "</svg>"
     )
 
 
@@ -622,14 +623,10 @@ def _svg_matrix(con, limit=40):
                 f'<rect x="{left + col * cw}" y="{y}" width="{cw - 2}" height="{ch - 2}" '
                 f'fill="{color}"><title>{html.escape(person)} · {html.escape(code)} · {html.escape(role or "sin cargo")}</title></rect>'
             )
-    legend = " ".join(
-        f'<span style="display:inline-block;width:.7rem;height:.7rem;background:{color};margin-right:.2rem"></span>{role}'
-        for role, color in ROLE_COLORS.items()
-    )
     return (
-        f'<p class="muted" style="font-size:.85rem">{legend}</p>'
-        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
-        f'aria-label="Personas por comisión y rol">' + "".join(parts) + "</svg>"
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
+        f'width="{width}" height="{height}" role="img" aria-label="Personas por comisión y rol">'
+        + "".join(parts) + "</svg>"
     )
 
 
@@ -879,6 +876,10 @@ def build(root=BASE):
         [(name, stats.get(source_id, {}).get("aprobadas", 0)) for _, _, name, source_id, _ in rows]
     )
     (web / "matriz.svg").write_text(_svg_matrix(con), encoding="utf-8")
+    matrix_legend = " ".join(
+        f'<span style="display:inline-block;width:.7rem;height:.7rem;background:{color};margin-right:.2rem"></span>{role}'
+        for role, color in ROLE_COLORS.items()
+    )
     matrix_chart = (
         '<img src="matriz.svg" alt="Personas por comisión y rol" loading="lazy" '
         'style="max-width:100%;height:auto">'
@@ -1039,7 +1040,8 @@ tarifas estén pendientes de validación.</p>
 </section>
 <section id="cruces" hidden>
 <h2>Cruces: personas × comisiones <span class=chip>🔵 derivado</span></h2>
-<p class="muted">Top 40 personas por número de comisiones. Cada celda = cargo en esa comisión; el color indica el rol (leyenda arriba). Los códigos de columna son los de la comisión.</p>
+<p class="muted">Top 40 personas por número de comisiones. Cada celda = cargo en esa comisión; el color indica el rol.</p>
+<p class="muted" style="font-size:.85rem">{matrix_legend}</p>
 {matrix_chart}
 </section>
 <p><a href="personas.html">Personas y comisiones</a> · <a href="metodologia.html">Metodología y límites</a></p>
