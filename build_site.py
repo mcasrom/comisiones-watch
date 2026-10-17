@@ -60,6 +60,10 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:.15rem solid cu
 .tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem}
 .tabs button,.tabs a{border:1px solid var(--line);border-radius:999px;padding:.3rem .8rem;background:var(--bg);color:var(--fg);font:inherit;cursor:pointer;text-decoration:none}
 .tabs .on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.life{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.4rem}
+.life li{border:1px solid var(--line);border-radius:999px;padding:.2rem .6rem;font-size:.9rem}
+.life .ok{border-color:#0b5}
+.life .na{color:var(--muted)}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
@@ -427,6 +431,30 @@ def _svg_calendar(con):
     )
 
 
+def _svg_approved(rows, limit=10):
+    """Iniciativas aprobadas por comisión (solo comisiones con >0)."""
+    rows = [(name, value) for name, value in rows if value > 0]
+    rows.sort(key=lambda item: -item[1])
+    rows = rows[:limit]
+    if not rows:
+        return '<p class="muted">Sin iniciativas aprobadas con comisión atribuida.</p>'
+    width, bar_h, gap, left = 720, 22, 6, 270
+    max_v = max(value for _, value in rows) or 1
+    height = 16 + len(rows) * (bar_h + gap)
+    parts = []
+    for index, (name, value) in enumerate(rows):
+        y = 12 + index * (bar_h + gap)
+        bar_w = max(4, round(value / max_v * (width - left - 46)))
+        label = html.escape(name[:46] + ("…" if len(name) > 46 else ""))
+        parts.append(f'<text x="0" y="{y + 15}" font-size="12" fill="#334155">{label}</text>')
+        parts.append(f'<rect x="{left}" y="{y}" width="{bar_w}" height="{bar_h}" rx="3" fill="#2563eb"/>')
+        parts.append(f'<text x="{left + bar_w + 6}" y="{y + 15}" font-size="12" font-weight="bold" fill="#0f172a">{value}</text>')
+    return (
+        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
+        f'aria-label="Iniciativas aprobadas por comisión">' + "".join(parts) + "</svg>"
+    )
+
+
 def _svg_groups(con):
     """Miembros en comisiones vs intervenciones, por grupo del Congreso."""
     groups = set(CONGRESS_GROUPS)
@@ -532,6 +560,9 @@ def build(root=BASE):
     )
     groups_chart = _svg_groups(con)
     calendar_chart = _svg_calendar(con)
+    approved_chart = _svg_approved(
+        [(name, stats.get(source_id, {}).get("aprobadas", 0)) for _, _, name, source_id, _ in rows]
+    )
     index_body = f"""
 <nav class=tabs aria-label="Secciones">
 <button data-tab="resumen" class="on">Resumen</button>
@@ -565,6 +596,9 @@ tarifas estén pendientes de validación.</p>
 <h2>Grupos: miembros en comisiones vs intervenciones <span class=chip>🔵 derivado</span></h2>
 <p class="muted">«Miembros» = personas distintas con cargo en comisiones (proxy, no escaños de la Cámara). «Intervenciones» = participación, no asistencia.</p>
 {groups_chart}
+<h2>Iniciativas aprobadas por comisión <span class=chip>🔵 derivado</span></h2>
+<p class="muted">Iniciativas competencia de la comisión con resultado «Aprobado…». La ley publicada no se atribuye por comisión (⚪ no consta).</p>
+{approved_chart}
 </section>
 <section id="comisiones" hidden>
 <h2>Comisiones</h2>
@@ -776,6 +810,16 @@ Oradores distintos: <b>{speakers}</b>. «Participa» aquí significa <b>interven
 <table><caption>Iniciativas por situación</caption>
 <thead><tr><th>Situación</th><th>Total</th></tr></thead>
 <tbody>{situacion_rows or '<tr><td colspan="2">Sin dato (⚪)</td></tr>'}</tbody></table>
+<h2>Ciclo de vida <span class="chip">🔵 derivado</span></h2>
+<ol class="life">
+<li class="{'ok' if constituted else 'na'}">Constituida: {constituted or '⚪ no consta'}</li>
+<li class="{'ok' if sessions else 'na'}">Sesiones: {sessions_n}</li>
+<li class="{'ok' if comparecencias else 'na'}">Comparecencias identificadas: {comparecencias}</li>
+<li class="{'ok' if info['iniciativas'] else 'na'}">Iniciativas: {info['iniciativas']}</li>
+<li class="{'ok' if info['aprobadas'] else 'na'}">Aprobadas: {info['aprobadas']}</li>
+<li class="na">Dictamen/conclusiones: ⚪ no consta</li>
+<li class="na">Ley publicada por comisión: ⚪ no consta</li>
+</ol>
 <h2>Complementos por cargo (estimación) <span class="chip">🔴 no se publica</span></h2>
 <p>No se publica mientras las tarifas estén en validación (ver <a href="metodologia.html">metodología</a>).
 No es el coste total de la comisión: son complementos por cargo.</p>
