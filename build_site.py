@@ -513,20 +513,37 @@ def _svg_calendar(con):
     if not codes:
         return '<p class="muted">Sin sesiones cargadas.</p>'
     months = _months("2023-08", "2026-09")
-    left, top, cw, ch = 210, 30, 15, 15
-    width = left + len(months) * cw + 10
-    height = top + len(codes) * ch + 30
-    parts = []
+    left, top, cw, ch = 250, 58, 16, 16
+    rows = len(codes)
+    width = left + len(months) * cw + 20
+    height = top + rows * ch + 64
+    years = {}
     for index, month in enumerate(months):
-        if month.endswith("-01") or index == 0:
+        years.setdefault(month[:4], []).append(index)
+    parts = []
+    for year, idxs in years.items():
+        start, end = idxs[0], idxs[-1]
+        x = left + start * cw
+        band_w = (end - start + 1) * cw
+        if int(year) % 2 == 0:
             parts.append(
-                f'<text x="{left + index * cw}" y="12" font-size="9" fill="#64748b" '
-                f'transform="rotate(-45 {left + index * cw} 12)">{month[2:]}</text>'
+                f'<rect x="{x}" y="{top}" width="{band_w}" height="{rows * ch}" fill="#f1f5f9"/>'
             )
+        parts.append(
+            f'<text x="{x + band_w / 2}" y="20" font-size="13" font-weight="bold" '
+            f'text-anchor="middle" fill="#0f172a">{year}</text>'
+        )
+    initials = ["E", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
+    for index, month in enumerate(months):
+        month_number = int(month[5:7])
+        parts.append(
+            f'<text x="{left + index * cw + cw / 2}" y="40" font-size="9" '
+            f'text-anchor="middle" fill="#64748b">{initials[month_number - 1]}</text>'
+        )
     for row, code in enumerate(codes):
         y = top + row * ch
-        label = html.escape(names.get(code, code)[:30])
-        parts.append(f'<text x="0" y="{y + 11}" font-size="9" fill="#334155">{label}</text>')
+        label = html.escape(names.get(code, code)[:38])
+        parts.append(f'<text x="0" y="{y + 12}" font-size="10" fill="#334155">{label}</text>')
         for col, month in enumerate(months):
             n = data[code].get(month, 0)
             if n:
@@ -535,6 +552,24 @@ def _svg_calendar(con):
             else:
                 fill = 'fill="#eef2f3"'
             parts.append(f'<rect x="{left + col * cw}" y="{y}" width="{cw - 2}" height="{ch - 2}" {fill}/>')
+    legend_y = top + rows * ch + 22
+    parts.append(f'<text x="0" y="{legend_y + 12}" font-size="11" fill="#334155">Sesiones por mes:</text>')
+    legend_x = 130
+    for n in range(5):
+        if n == 0:
+            fill = 'fill="#eef2f3"'
+            label = "0"
+        elif n == 4:
+            fill = 'fill="#0b5"'
+            label = "4+"
+        else:
+            fill = f'fill="#0b5" opacity="{0.20 + n / 5 * 0.80:.2f}"'
+            label = str(n)
+        parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="14" height="14" rx="2" {fill}/>')
+        parts.append(
+            f'<text x="{legend_x + 18}" y="{legend_y + 11}" font-size="10" fill="#334155">{label}</text>'
+        )
+        legend_x += 38
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'width="{width}" height="{height}" role="img" aria-label="Sesiones por comisión y mes">'
