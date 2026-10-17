@@ -86,6 +86,7 @@ def commission_metrics(
     days_active = (today - constituted).days
     months_active = max(days_active / DAYS_PER_MONTH, 1 / DAYS_PER_MONTH)
     per_month = len(substantive) / months_active
+    sessions_per_month = len(sessions) / months_active
     last = max(
         (parse_day(session["session_date"], field="session_date") for session in substantive),
         default=None,
@@ -93,7 +94,9 @@ def commission_metrics(
     if days_active < grace_days:
         status = "periodo_gracia"
     elif not substantive:
-        status = "sin_actividad"
+        # Hay reuniones, pero ninguna clasificada como comparecencia/debate:
+        # no es "sin actividad", es actividad no clasificable con el opendata.
+        status = "sin_clasificar" if sessions else "sin_actividad"
     elif (
         peer_median_per_month is not None
         and peer_median_per_month > 0
@@ -105,6 +108,7 @@ def commission_metrics(
     return {
         "sessions_total": len(sessions),
         "sessions_substantive": len(substantive),
+        "sessions_per_month": round(sessions_per_month, 3),
         "substantive_per_month": round(per_month, 3),
         "days_since_last_substantive": (today - last).days if last else None,
         "status": status,

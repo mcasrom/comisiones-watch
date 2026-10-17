@@ -55,7 +55,41 @@ tfoot td{font-weight:600}
 .skip:focus{left:.5rem;top:.5rem;background:var(--fg);color:var(--bg);padding:.5rem}
 a:focus-visible,button:focus-visible,input:focus-visible{outline:.15rem solid currentColor}
 .muted{color:var(--muted)}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
+.cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
+.cover>span{display:block;height:100%;background:var(--accent)}
 """
+
+DISSOLUTION = "2026-10-06"
+STATUS_ES = {
+    "periodo_gracia": "periodo de gracia",
+    "sin_actividad": "sin actividad registrada",
+    "sin_clasificar": "reuniones sin comparecencia/debate identificados",
+    "actividad_baja": "actividad baja",
+    "actividad_normal": "actividad normal",
+}
+GROUP_NAMES = {
+    "GP": "Grupo Parlamentario Popular (Congreso)",
+    "GS": "Grupo Parlamentario Socialista (Congreso)",
+    "GVOX": "Grupo Parlamentario VOX (Congreso)",
+    "GSUMAR": "Grupo Parlamentario Sumar (Congreso)",
+    "GJxCAT": "Grupo Parlamentario Junts per Catalunya (Congreso)",
+    "GR": "Grupo Parlamentario Republicano (Congreso)",
+    "SGPP": "Grupo Parlamentario Popular (Senado)",
+    "SGPS": "Grupo Parlamentario Socialista (Senado)",
+    "SGPIC": "Grupo Parlamentario Izquierda Confederal (Senado)",
+    "SGPERB": "Grupo Parlamentario Esquerra Republicana-EH Bildu (Senado)",
+    "SGPV": "Grupo Parlamentario Vasco (Senado)",
+}
+OVERLAPS = {
+    "362": "Comisión homónima/solapada: 362, 363 y 364 abordan el apagón del 28-abr-2025.",
+    "363": "Comisión homónima/solapada: 362, 363 y 364 abordan el apagón del 28-abr-2025.",
+    "364": "Comisión homónima/solapada: 362, 363 y 364 abordan el apagón del 28-abr-2025.",
+    "311": "Comisión homónima: 311 «Comisión del Estatuto» y 313 «Comisión del Estatuto de los Diputados».",
+    "313": "Comisión homónima: 311 «Comisión del Estatuto» y 313 «Comisión del Estatuto de los Diputados».",
+}
+DATA_LEGEND = ('<p class="muted">Estado del dato: 🟢 oficial · 🔵 derivado de datos oficiales · '
+               '🟡 pendiente de validación · ⚪ no consta en la fuente · 🔴 no se publica (decisión editorial).</p>')
 
 
 def _page(title, body, description):
@@ -332,6 +366,13 @@ def build(root=BASE):
     total_leyes = con.execute("SELECT COUNT(*) FROM leyes_aprobadas").fetchone()[0]
     stats = _collect_stats(con)
 
+    coverage = {}
+    for code, total, norm in con.execute(
+        "SELECT commission_source_id, COUNT(*),"
+        " SUM(CASE WHEN role IS NOT NULL THEN 1 ELSE 0 END)"
+        " FROM composition_raw GROUP BY commission_source_id"
+    ):
+        coverage[code] = (int(norm or 0), int(total or 0))
     rows = con.execute(
         "SELECT chamber, kind, name, source_id, url FROM commissions ORDER BY name"
     ).fetchall()
@@ -340,12 +381,14 @@ def build(root=BASE):
         info = stats.get(source_id, {})
         sessions = len(info.get("sessions", []))
         iniciativas = info.get("iniciativas", 0)
+        norm, total = coverage.get(source_id, (0, 0))
         table_rows.append(
             "<tr>"
             f"<td>{html.escape(chamber)}</td><td>{html.escape(kind)}</td>"
             f"<td>{html.escape(name)}</td><td>{html.escape(source_id)}</td>"
-            f"<td>{sessions if sessions else '—'}</td>"
-            f"<td>{iniciativas if iniciativas else '—'}</td>"
+            f"<td>{norm}/{total}</td>"
+            f"<td>{sessions}</td>"
+            f"<td>{iniciativas}</td>"
             f"<td><a href=\"comision-{html.escape(source_id)}.html\">ficha</a>"
             f' · <a href="{html.escape(url)}">fuente</a></td></tr>'
         )
@@ -360,15 +403,16 @@ Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
 {_kpi("Sesiones (XV)", total_sesiones)}
 {_kpi("Iniciativas (XV)", total_iniciativas, "por comisión competente")}
 {_kpi("Leyes aprobadas", total_leyes)}
-{_unavailable("Coste estimado", f"{approved} tarifas aprobadas")}
+{_unavailable("Coste estimado", "no publicado · tarifas en validación")}
 </div>
 <p class="muted">Las sesiones se cuentan por fechas distintas de reunión del órgano en el
 volcado de intervenciones ({total_intervenciones:,} intervenciones cargadas). Las iniciativas
 son las que tienen cada comisión como competente. El coste no se publica mientras las
 tarifas estén pendientes de validación.</p>
+{DATA_LEGEND}
 <p><label>Filtrar listado <input type=search data-filter placeholder="Escribe cámara, tipo o nombre"></label></p>
 <table><caption>Comisiones del Congreso</caption>
-<thead><tr><th>Cámara</th><th>Tipo</th><th>Nombre</th><th>Código</th><th>Sesiones</th><th>Iniciativas</th><th>Enlaces</th></tr></thead>
+<thead><tr><th>Cámara</th><th>Tipo</th><th>Nombre</th><th>Código</th><th>Comp. normalizada</th><th>Sesiones</th><th>Iniciativas</th><th>Enlaces</th></tr></thead>
 <tbody>{table}</tbody></table>
 <p><a href="metodologia.html">Metodología y límites</a></p>
 <script>
@@ -434,28 +478,65 @@ def _write_ficha(con, web, code, stats):
         constitucion = f"Constitución: {constituted}."
     else:
         constitucion = "Constitución: no consta en las fuentes cargadas."
+    sessions_n = len(sessions)
+    per_month_all = metrics.get("sessions_per_month") if metrics else None
     if sessions:
         sessions_note = (
-            f"{len(sessions)} reuniones, {comparecencias} con comparecencia,"
-            f" última el {last_session}."
+            f"{sessions_n} reuniones"
+            + (f" ({per_month_all}/mes)" if per_month_all is not None else "")
+            + f"; {comparecencias} con comparecencia identificada; última el {last_session}."
         )
     else:
         sessions_note = "Sin reuniones cargadas de esta comisión."
-    status_note = (
-        f"Actividad: {metrics['status']} ({metrics['substantive_per_month']} por mes)."
-        if metrics
-        else ""
-    )
+    if metrics:
+        status_note = (
+            f"Actividad: {STATUS_ES.get(metrics['status'], metrics['status'])}"
+            f" ({metrics['substantive_per_month']} sesiones sustantivas/mes)."
+        )
+    else:
+        status_note = ""
     speakers = info["speakers"]
+    comparecencia_note = (
+        " (la fuente no identifica comparecencias en esta comisión)"
+        if sessions and comparecencias == 0 else ""
+    )
+    coverage_pct = round(office / len(members) * 100) if members else 0
+    overlap_html = (f'<p class="muted">⚠️ {html.escape(OVERLAPS[code])}</p>' if code in OVERLAPS else "")
+    reserved_html = (
+        '<p><span class="chip">🔴 Órgano reservado</span> Comisión de control de los créditos '
+        'destinados a gastos reservados: por su naturaleza, su actividad no se publica.</p>'
+        if code == "151" else ""
+    )
+    present_groups = sorted({member[1] for member in members if member[1] in GROUP_NAMES})
+    glossary_html = ""
+    if present_groups:
+        glossary_html = (
+            '<p class="muted">Grupos: '
+            + " · ".join(f"<b>{html.escape(c)}</b>: {html.escape(GROUP_NAMES[c])}" for c in present_groups)
+            + ".</p>"
+        )
+
+    def _end(value):
+        if not value:
+            return "en curso / no consta"
+        if value == DISSOLUTION:
+            return f"{value} (disolución)"
+        return value
+
+    def _party(code_party):
+        if code_party and code_party in GROUP_NAMES:
+            return f'<abbr title="{html.escape(GROUP_NAMES[code_party])}">{html.escape(code_party)}</abbr>'
+        return html.escape(code_party or "no consta")
+
     member_rows = "".join(
         "<tr>"
-        f"<td>{html.escape(person)}</td><td>{html.escape(party or 'no consta')}</td>"
-        f"<td>{html.escape(label)}"
-        + (f" ({html.escape(role)})" if role else " (pendiente de diccionario)")
+        f"<td>{html.escape(person)}</td><td>{_party(party)}</td>"
+        f"<td>{html.escape(label or 'no consta')}"
+        + (f" ({html.escape(role)})" if role else "")
         + "</td>"
         f"<td>{html.escape(start or 'no consta')}</td>"
-        f"<td>{html.escape(end or 'en curso/no consta')}</td>"
-        f"<td>{f'<a href=\"{html.escape(profile)}\">ficha</a>' if profile else 'sin enlace'}</td></tr>"
+        f"<td>{html.escape(_end(end))}</td>"
+        f"<td>{f'<a href=\"{html.escape(profile)}\">ficha</a>' if profile else 'no consta'}</td></tr>"
         for person, party, label, role, start, end, profile in members
     )
     tipo_rows = "".join(
@@ -484,11 +565,16 @@ def _write_ficha(con, web, code, stats):
     ficha_body = f"""
 <p><a href="index.html">Volver</a></p>
 <h1>{html.escape(name)} ({html.escape(code)})</h1>
-<p>{constitucion} Composición cargada: {len(members)} registros, {office} con cargo
-normalizado y {pending_roles} pendientes.</p>
-<h2>Reuniones</h2>
-<p>{html.escape(sessions_note)} {html.escape(status_note)}
-{('Comparecientes distintos: <b>%d</b>.' % speakers) if speakers else ''}</p>
+<p>{constitucion} Composición cargada: <b>{len(members)}</b> registros; <b>{office}</b> con cargo
+normalizado (<b>{coverage_pct} %</b>) y {pending_roles} sin normalizar.</p>
+<div class="cover" title="Composición normalizada: {office}/{len(members)}"><span style="width:{coverage_pct}%"></span></div>
+{overlap_html}
+{reserved_html}
+{DATA_LEGEND}
+<h2>Reuniones <span class="chip">🔵 derivado</span></h2>
+<p>{html.escape(sessions_note)} {html.escape(status_note)}</p>
+<p>Comparecencias identificadas: <b>{comparecencias}</b>{html.escape(comparecencia_note)} ·
+Oradores distintos: <b>{speakers}</b>. «Participa» aquí significa <b>intervenciones</b>, no asistencia.</p>
 <svg viewBox="0 0 600 90" role="img" aria-label="Periodo cubierto por las fuentes">
 <line x1="20" y1="60" x2="580" y2="60" stroke="currentColor" stroke-width="2"/>
 <circle cx="20" cy="60" r="5" fill="currentColor"/>
@@ -497,22 +583,32 @@ normalizado y {pending_roles} pendientes.</p>
 <text x="500" y="80">{html.escape(CUTOFF)}</text>
 <text x="20" y="30">{html.escape(f"{len(sessions)} fechas de reunión cargadas" if sessions else 'Sin reuniones cargadas')}</text>
 </svg>
-<h2>Trabajos</h2>
+<h2>Trabajos <span class="chip">🔵 derivado</span></h2>
 {trabajos}
 <table><caption>Iniciativas por tipo</caption>
 <thead><tr><th>Tipo</th><th>Total</th></tr></thead>
-<tbody>{tipo_rows or '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
-<h2>Resultados</h2>
+<tbody>{tipo_rows or '<tr><td colspan="2">Sin dato (⚪)</td></tr>'}</tbody></table>
+<h2>Resultados <span class="chip">🔵 derivado</span></h2>
 <table><caption>Iniciativas por situación</caption>
 <thead><tr><th>Situación</th><th>Total</th></tr></thead>
-<tbody>{situacion_rows or '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
-<h2>Coste</h2>
-<p>Coste publicado: <b>dato no disponible</b> porque todas las tarifas están pendientes de
-validación (ver <a href="metodologia.html">metodología</a>).</p>
-<h2>Composición oficial</h2>
+<tbody>{situacion_rows or '<tr><td colspan="2">Sin dato (⚪)</td></tr>'}</tbody></table>
+<h2>Complementos por cargo (estimación) <span class="chip">🔴 no se publica</span></h2>
+<p>No se publica mientras las tarifas estén en validación (ver <a href="metodologia.html">metodología</a>).
+No es el coste total de la comisión: son complementos por cargo.</p>
+<h2>Composición oficial <span class="chip">🟢 oficial</span></h2>
 <table><caption>Personas en cargos o adscripciones públicas</caption>
 <thead><tr><th>Nombre</th><th>Grupo</th><th>Cargo</th><th>Alta</th><th>Baja</th><th>Fuente</th></tr></thead>
 <tbody>{member_rows}</tbody></table>
+{glossary_html}
+<details><summary><b>Qué no mostramos y por qué</b></summary>
+<ul>
+<li><b>Coste</b>: 🔴 no se publica mientras las tarifas estén en validación.</li>
+<li><b>Comparecencias</b>: ⚪ el opendata no siempre identifica la fase; se cuenta la sesión como reunión y solo se marca cuando la fuente lo dice.</li>
+<li><b>Leyes aprobadas por comisión</b>: ⚪ la fuente no atribuye las leyes a una comisión.</li>
+<li><b>Senado</b>: ⚪ acceso automatizado bloqueado; su composición no se ingiere. Las siglas SG… son grupos del Senado.</li>
+<li><b>Bajas</b>: la fecha de baja igual a la disolución ({html.escape(DISSOLUTION)}) indica el fin de legislatura, no una baja individual.</li>
+</ul>
+</details>
 <p>Fuente: listado oficial del Congreso, CSV de composición, e iniciativas e
 intervenciones del opendata del Congreso.</p>
 """

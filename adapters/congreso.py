@@ -195,10 +195,12 @@ def canonical_role(label):
         return "vicepresidente"
     if normalized.startswith("secretari"):
         return "secretario"
-    if normalized.startswith("portavoz adjunt"):
+    if normalized.startswith("portavoces adjunt") or normalized.startswith("portavoz adjunt"):
         return "portavoz_adjunto"
-    if normalized.startswith("portavoz"):
+    if normalized.startswith("portavoces") or normalized.startswith("portavoz"):
         return "portavoz"
+    if normalized.startswith("adscrit"):
+        return "adscrito"
     if normalized.startswith("vocal"):
         return "vocal"
     return None
