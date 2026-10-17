@@ -1446,17 +1446,17 @@ de criterio/fecha está pendiente de conciliar, así que <b>no se publica un ún
 <li><b>Coste</b>: mensualidad oficial × meses × 14/12. <b>No se publica</b> mientras las
 tarifas estén en <code>pendiente_validacion</code>.</li>
 </ul>
-<h2>Conciliación del recuento de leyes (XV)</h2>
+<h2 id="conciliacion">Conciliación del recuento de leyes (XV)</h2>
 <p>No hay una sola cifra: cada fuente cuenta una cosa. Esta es la conciliación, con su criterio:</p>
 <table>
 <thead><tr><th>Fuente / criterio</th><th>Leyes</th><th>Qué cuenta</th></tr></thead>
 <tbody>
 <tr><td>Este observatorio (Congreso, dedup por título/año)</td><td><b>34</b> (21 ordinarias + 13 orgánicas)</td><td>Leyes aprobadas por las Cortes en el volcado del Congreso; <b>incluye las aprobadas en comisión sin votación final del Pleno</b> (art. 75.2 CE).</td></tr>
 <tr><td>Votaciones finales del Pleno (<a href="https://eslahoradelaverdad.es/balance-xv/" target="_blank" rel="noopener">Es la hora</a>)</td><td><b>29</b> (15 ordinarias + 14 orgánicas)</td><td>Solo leyes con votación final/de conjunto en el Pleno; no ve las aprobadas en comisión.</td></tr>
-<tr><td>Listado del Senado (<a href="https://www.senado.es/web/actividadparlamentaria/actualidad/leyes/aprobadas/index.html" target="_blank" rel="noopener">Senado</a>)</td><td><b>38</b></td><td>Listado oficial del Senado; criterio y cámara distintos (incluye leyes con trámite en el Senado).</td></tr>
+<tr><td>Listado del Senado (<a href="https://www.senado.es/web/actividadparlamentaria/actualidad/leyes/aprobadas/index.html" target="_blank" rel="noopener">Senado</a>)</td><td><b>38</b> = 34 + 4</td><td>Nuestras <b>34 coinciden 1:1</b> con las <b>34 del Senado de 2024-2026</b> (mismos números/año). El total de 38 añade <b>4 leyes de 2023</b> que el volcado del Congreso no recoge.</td></tr>
 <tr><td>Balance de prensa (<a href="https://elpais.com/espana/elecciones-generales/2026-10-06/todos-los-proyectos-que-caen-con-las-nuevas-elecciones-tras-una-legislatura-con-22-leyes-y-43-decretos.html" target="_blank" rel="noopener">El País</a>)</td><td><b>22</b> leyes + 43 RDL</td><td>Criterio periodístico (leyes ordinarias y decretos); no desglosa orgánicas.</td></tr>
 </tbody></table>
-<p class="muted"><b>Conclusión:</b> <b>34</b> es el recuento del volcado del Congreso tras deduplicar; <b>29</b> el de votaciones finales del Pleno; <b>38</b> el del Senado; <b>22</b> el de prensa. La diferencia 34−29 (5) es coherente con las leyes aprobadas en comisión que el Pleno no vota. En reales decretos-ley, nuestro volcado tiene <b>61 distintos</b>; Es la hora cuenta <b>42 convalidados + 13 derogados</b> y El País cita <b>43</b>: otro criterio de conteo. Por eso <b>no se publica un único «leyes aprobadas»</b>.</p>
+<p class="muted"><b>Conclusión:</b> nuestras <b>34</b> coinciden exactamente con las <b>34 leyes del Senado de 2024-2026</b>; el total del Senado (<b>38</b>) añade <b>4 leyes de 2023</b> que no están en el volcado del Congreso. La diferencia con las <b>29</b> votaciones finales del Pleno son las leyes aprobadas en comisión (art. 75.2). El <b>22</b> de prensa cuenta ordinarias. En reales decretos-ley, nuestro volcado tiene <b>61 distintos</b>; Es la hora <b>42 convalidados + 13 derogados</b> y El País <b>43</b>. Por eso <b>no se publica un único «leyes aprobadas»</b>.</p>
 <h2>Consultas reproducibles</h2>
 <pre><code>SELECT COUNT(*) FROM commissions;
 SELECT COUNT(DISTINCT commission_source_id || '|' || sesion) FROM intervenciones
