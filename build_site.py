@@ -5,7 +5,7 @@ Parte de la SQLite (`ingest_csv.py` rellena composición; `ingest_opendata.py`
 rellena iniciativas, leyes aprobadas e intervenciones) y produce el índice, una
 ficha por comisión, la metodología y `llms.txt`.
 
-Dimensiones publicadas por comisión: **constitución, reuniones, trabajos,
+Dimensiones publicadas por comisión: **constitución, actividad y
 resultados** y **coste estimado**. El coste sigue sin publicarse mientras todas
 las tarifas estén `pendiente_validacion`. Todo lo que no tiene dato se marca
 como no disponible; nada se inventa. Reejecutable, sin red.
@@ -141,6 +141,7 @@ XV legislatura · fecha de corte {html.escape(CUTOFF)}.</p>
 <p>
 <a href="{html.escape(REPO)}" target="_blank" rel="noopener">Código en GitHub</a> ·
 <a href="metodologia.html">Metodología</a> ·
+<a href="publicable.html">Qué es publicable</a> ·
 <a href="personas.html">Personas</a> ·
 <a href="datos.csv">Descargar CSV</a> ·
 <a href="{html.escape(SOURCE)}" target="_blank" rel="noopener">Fuente: Congreso</a> ·
@@ -672,8 +673,73 @@ def _write_csv(web, rows, stats, coverage):
             )
 
 
+def _write_publicable(web):
+    body = f"""
+<h1>Qué es publicable y qué no</h1>
+<p>Este observatorio reutiliza <strong>datos oficiales</strong> de las cámaras y publica solo lo que
+puede sostenerse con una fuente y con la normativa aplicable. No publica datos personales ajenos al
+cargo ni información reservada. Esta página explica el criterio, de dónde salen los datos y qué dicen
+los reglamentos y la protección de datos.</p>
+
+<h2>De dónde salen los datos</h2>
+<ul>
+<li><strong>Composición</strong>: CSV oficial de composición de las comisiones del Congreso (XV legislatura).</li>
+<li><strong>Actividad e iniciativas</strong>: opendata del Congreso de los Diputados (intervenciones e iniciativas).</li>
+<li><strong>Senado</strong>: acceso automatizado bloqueado; no se ingiere (⚪ no consta).</li>
+<li><strong>Coste</strong>: tarifas oficiales pendientes de validación; no se publica (🔴).</li>
+</ul>
+<p>Fecha de corte: <strong>{html.escape(CUTOFF)}</strong>. La XV legislatura está disuelta (6-oct-2026),
+así que los datos son un estado congelado, no una foto en tiempo real.</p>
+
+<h2>Qué publicamos</h2>
+<ul>
+<li>Datos de <strong>cargos públicos</strong> (nombre, grupo, cargo y fechas) tal como los publica el Congreso.</li>
+<li>Métricas <strong>derivadas</strong> (sesiones, intervenciones, iniciativas, aprobadas), con su método y su estado de dato.</li>
+<li>Datos de <strong>órganos</strong> (comisiones) y de su actividad.</li>
+</ul>
+
+<h2>Qué no publicamos y por qué</h2>
+<ul>
+<li><strong>Datos personales ajenos al cargo</strong> (contacto, vida privada, opiniones): fuera del interés público y del principio de minimización.</li>
+<li><strong>Coste y complementos</strong>: no se publica mientras las tarifas estén en validación.</li>
+<li><strong>Senado</strong>: acceso bloqueado; no se estima ni se rellena con terceros.</li>
+<li><strong>Comisiones reservadas</strong> (por ejemplo, gastos reservados, 151): su actividad no se publica por su naturaleza.</li>
+<li><strong>Etiquetas internas</strong> de normalización: no se muestran; solo el resultado.</li>
+</ul>
+
+<h2>Qué dicen los reglamentos</h2>
+<ul>
+<li><strong>Reglamento del Congreso de los Diputados</strong> y <strong>Reglamento del Senado</strong>: regulan la
+publicidad de los trabajos de las cámaras y de sus comisiones. Este observatorio se limita a reutilizar
+la información que las cámaras ya publican (<a href="https://www.congreso.es/" target="_blank" rel="noopener">congreso.es</a> ·
+<a href="https://www.senado.es/" target="_blank" rel="noopener">senado.es</a>).</li>
+<li><strong>Comisiones</strong>: la publicidad de convocatorias, órdenes del día y actas es la base de la
+actividad que aquí se mide; no se deduce actividad no publicada.</li>
+<li><strong>Protección de datos</strong>: <a href="https://eur-lex.europa.eu/eli/reg/2016/679/oj" target="_blank" rel="noopener">RGPD (UE) 2016/679</a>
+y <a href="https://www.boe.es/buscar/act.php?id=BOE-A-2018-16673" target="_blank" rel="noopener">LOPDGDD (LO 3/2018)</a>:
+minimización, finalidad, exactitud, transparencia y seguridad. Solo se tratan datos de cargos públicos
+en el ejercicio de su función; no se elaboran perfiles ni se tratan categorías especiales.</li>
+</ul>
+
+<h2>Correcciones y contacto</h2>
+<p>Si detectas un error o un dato personal que no debería estar publicado, abre una incidencia en
+<a href="{html.escape(REPO)}/issues" target="_blank" rel="noopener">GitHub</a>. Las correcciones se
+registran y se explican.</p>
+"""
+    (web / "publicable.html").write_text(
+        _page(
+            "Qué es publicable y qué no — Comisiones",
+            body,
+            "Criterio de publicación, procedencia de los datos, reglamentos de las cámaras y protección de datos del observatorio de comisiones.",
+            url="/publicable.html",
+            breadcrumbs=[("Inicio", "/"), ("Qué es publicable", "/publicable.html")],
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_seo_files(web, codes):
-    urls = [("/", "1.0"), ("/personas.html", "0.7"), ("/metodologia.html", "0.6")]
+    urls = [("/", "1.0"), ("/personas.html", "0.7"), ("/metodologia.html", "0.6"), ("/publicable.html", "0.6")]
     urls += [(f"/comision-{code}.html", "0.8") for code in sorted(codes)]
     entries = "".join(
         f"<url><loc>{SITE}{path}</loc><lastmod>{CUTOFF}</lastmod>"
@@ -833,7 +899,7 @@ def build(root=BASE):
         ),
         (
             "¿Cuánto trabajo hay en total?",
-            f"<b>{total_sesiones}</b> sesiones, <b>{total_iniciativas}</b> iniciativas y <b>{total_aprobadas}</b> aprobadas con comisión atribuida. Coste: 🔴 no se publica (tarifas en validación).",
+            f"<b>{total_sesiones}</b> sesiones, <b>{total_iniciativas}</b> iniciativas y <b>{total_aprobadas}</b> aprobadas con comisión atribuida.",
             f"{total_sesiones} sesiones, {total_iniciativas} iniciativas y {total_aprobadas} aprobadas.",
             ("goto", "resumen"),
             "Ver gráficos",
@@ -884,7 +950,6 @@ def build(root=BASE):
 <span class="chip"><b>{total_iniciativas}</b> iniciativas</span>
 <span class="chip"><b>{total_aprobadas}</b> aprobadas</span>
 <span class="chip"><b>{total_leyes}</b> leyes (sin atribuir)</span>
-<span class="chip">🔴 coste no publicado</span>
 </div>
 <div class="ctas">
 <a class="cta primary" href="#" data-goto="comisiones">Explorar comisiones</a>
@@ -902,7 +967,7 @@ def build(root=BASE):
 <script type="application/ld+json">{json.dumps(faq_json, ensure_ascii=False)}</script>
 </section>
 <section id="resumen" hidden>
-<h2>Resumen: actividad, trabajos, resultados y coste</h2>
+<h2>Resumen: actividad y resultados</h2>
 <p>Congreso de los Diputados, XV legislatura (disuelta el 6-oct-2026). Fecha de corte: {CUTOFF}.
 Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
 <div class=kpis>
@@ -911,7 +976,6 @@ Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
 {_kpi("Sesiones (XV)", total_sesiones)}
 {_kpi("Iniciativas (XV)", total_iniciativas, "por comisión competente")}
 {_kpi("Leyes aprobadas", total_leyes)}
-{_unavailable("Coste estimado", "no publicado · tarifas en validación")}
 </div>
 <p class="muted">Las sesiones se cuentan por fechas distintas de reunión del órgano en el
 volcado de intervenciones ({total_intervenciones:,} intervenciones cargadas). Las iniciativas
@@ -965,6 +1029,7 @@ if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(c
 
     _write_personas(con, web)
     _write_metodologia(con, web, stats, total_leyes)
+    _write_publicable(web)
     _write_seo_files(web, sorted(stats))
     (web / "llms.txt").write_text(
         f"Observatorio de comisiones del Congreso (XV legislatura, corte {CUTOFF}).\n"
@@ -972,7 +1037,6 @@ if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(c
         f" ({composition_rows} registros).\n"
         f"{total_sesiones} sesiones, {total_iniciativas} iniciativas y {total_leyes}"
         " leyes aprobadas cargadas del opendata.\n"
-        "Coste estimado: dato no disponible (tarifas pendientes de validación).\n"
         f"Fuentes: {LISTING_SOURCE} ; {INICIATIVAS_SOURCE} ; {INTERVENCIONES_SOURCE} ;"
         f" CSV de composición del Congreso ; {TARIFF_SOURCES['congreso']} .\n",
         encoding="utf-8",
@@ -1137,7 +1201,7 @@ Oradores distintos: <b>{speakers}</b>. «Participa» aquí significa <b>interven
 <text x="500" y="80">{html.escape(CUTOFF)}</text>
 <text x="20" y="30">{html.escape(f"{len(sessions)} fechas de reunión cargadas" if sessions else 'Sin reuniones cargadas')}</text>
 </svg>
-<h2>Trabajos <span class="chip">🔵 derivado</span></h2>
+<h2>Actividad <span class="chip">🔵 derivado</span></h2>
 {trabajos}
 <table><caption>Iniciativas por tipo</caption>
 <thead><tr><th>Tipo</th><th>Total</th></tr></thead>
@@ -1156,9 +1220,6 @@ Oradores distintos: <b>{speakers}</b>. «Participa» aquí significa <b>interven
 <li class="na">Dictamen/conclusiones: ⚪ no consta</li>
 <li class="na">Ley publicada por comisión: ⚪ no consta</li>
 </ol>
-<h2>Complementos por cargo (estimación) <span class="chip">🔴 no se publica</span></h2>
-<p>No se publica mientras las tarifas estén en validación (ver <a href="metodologia.html">metodología</a>).
-No es el coste total de la comisión: son complementos por cargo.</p>
 <h2>Composición oficial <span class="chip">🟢 oficial</span></h2>
 <table><caption>Personas en cargos o adscripciones públicas</caption>
 <thead><tr><th>Nombre</th><th>Grupo</th><th>Cargo</th><th>Alta</th><th>Baja</th><th>Fuente</th></tr></thead>
@@ -1180,7 +1241,7 @@ intervenciones del opendata del Congreso.</p>
         _page(
             f"{name}: actividad y resultados",
             ficha_body,
-            "Ficha de comisión: constitución, reuniones, trabajos, resultados y composición.",
+            "Ficha de comisión: constitución, actividad, resultados y composición.",
             url=f"/comision-{code}.html",
             breadcrumbs=[("Inicio", "/"), ("Comisiones", "/"), (name, f"/comision-{code}.html")],
         ),
@@ -1277,7 +1338,7 @@ opendata son un <b>estado congelado</b> del final de legislatura.</p>
 <li><b>Reuniones</b>: fechas distintas de sesión del órgano en el volcado de
 intervenciones (<a href="{INTERVENCIONES_SOURCE}">opendata/intervenciones</a>). Una
 «reunión» es una fecha; la comparecencia se marca por la fase o el tipo de intervención.</li>
-<li><b>Trabajos</b>: iniciativas cuya comisión competente es la comisión
+<li><b>Actividad</b>: iniciativas cuya comisión competente es la comisión
 (<a href="{INICIATIVAS_SOURCE}">opendata/iniciativas</a>: proyectos de ley,
 proposiciones de ley y propuestas de reforma).</li>
 <li><b>Resultados</b>: situación actual de esas iniciativas y las leyes aprobadas
