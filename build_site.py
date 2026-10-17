@@ -887,12 +887,16 @@ def build(root=BASE):
         sessions = len(info.get("sessions", []))
         iniciativas = info.get("iniciativas", 0)
         norm, total = coverage.get(source_id, (0, 0))
+        sessions_cell = (
+            '0 <span title="sin sesiones registradas en el opendata; posible dato incompleto">⚠</span>'
+            if sessions == 0 else str(sessions)
+        )
         table_rows.append(
             "<tr>"
             f"<td>{html.escape(chamber)}</td><td>{html.escape(kind)}</td>"
             f"<td>{html.escape(name)}</td><td>{html.escape(source_id)}</td>"
             f"<td>{norm}/{total}</td>"
-            f"<td>{sessions}</td>"
+            f"<td>{sessions_cell}</td>"
             f"<td>{iniciativas}</td>"
             f"<td><a href=\"comision-{html.escape(source_id)}.html\">ficha</a>"
             f' · <a href="{html.escape(url)}">fuente</a></td></tr>'
@@ -1068,10 +1072,12 @@ tarifas estén pendientes de validación.</p>
 </section>
 <section id="comisiones" hidden>
 <h2>Comisiones</h2>
-<p><label>Filtrar listado <input type=search data-filter placeholder="Escribe cámara, tipo o nombre"></label></p>
-<table><caption>Comisiones del Congreso</caption>
-<thead><tr><th>Cámara</th><th>Tipo</th><th>Nombre</th><th>Código</th><th>Comp. normalizada</th><th>Sesiones</th><th>Iniciativas</th><th>Enlaces</th></tr></thead>
+<p><label>Filtrar listado <input type=search data-filter placeholder="Escribe cámara, tipo o nombre"></label> <span class="muted">· Haz clic en una cabecera para ordenar.</span></p>
+<table id="comisiones-tabla"><caption>Comisiones del Congreso</caption>
+<thead><tr><th data-sort="0">Cámara</th><th data-sort="1">Tipo</th><th data-sort="2">Nombre</th><th data-sort="3">Código</th><th data-sort="4">Comp. normalizada</th><th data-sort="5">Sesiones</th><th data-sort="6">Iniciativas</th><th>Enlaces</th></tr></thead>
 <tbody>{table}</tbody></table>
+<p class="muted">⚠ «0 sesiones» = sin registro en el opendata (posible dato incompleto; no implica que no se reuniera).
+«0 iniciativas» = ninguna atribuida a la comisión como competente.</p>
 </section>
 <section id="cruces" hidden>
 <h2>Cruces: personas × comisiones <span class=chip>🔵 derivado</span></h2>
@@ -1087,6 +1093,14 @@ document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',e
 if(location.hash)showTab(location.hash.slice(1));
 const q=document.querySelector('[data-filter]');
 if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(const row of document.querySelectorAll('#comisiones tbody tr')){{row.hidden=needle && !row.textContent.toLowerCase().includes(needle);}}}});}}
+const tabla=document.getElementById('comisiones-tabla');
+if(tabla){{
+  const cuerpo=tabla.querySelector('tbody');
+  const cabeceras=[...tabla.querySelectorAll('th[data-sort]')];
+  const valor=(fila,i)=>{{const txt=fila.children[i].textContent.trim();const partes=txt.split('/');if(partes.length===2){{const a=parseFloat(partes[0].replace(/[.]/g,''));const b=parseFloat(partes[1].replace(/[.]/g,''));return b? a/b:0;}}const n=parseFloat(txt.replace(/[.]/g,''));return isNaN(n)?txt.toLowerCase():n;}};
+  let idx=-1,dir=1;
+  cabeceras.forEach(th=>{{th.style.cursor='pointer';th.title='Ordenar por '+th.textContent;th.addEventListener('click',()=>{{const i=+th.dataset.sort;if(idx===i)dir=-dir;else{{idx=i;dir=1;}}const filas=[...cuerpo.querySelectorAll('tr')];filas.sort((a,b)=>{{const va=valor(a,i),vb=valor(b,i);if(typeof va==='number'&&typeof vb==='number')return (va-vb)*dir;return String(va).localeCompare(String(vb),'es')*dir;}});filas.forEach(r=>cuerpo.appendChild(r));cabeceras.forEach(h=>{{h.removeAttribute('aria-sort');h.textContent=h.textContent.replace(/[ ▲▼]+$/,'');}});th.setAttribute('aria-sort',dir>0?'ascending':'descending');th.textContent=th.textContent+(dir>0?' ▲':' ▼');}});}});
+}}
 </script>
 """
     (web / "index.html").write_text(
