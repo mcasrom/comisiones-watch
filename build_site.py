@@ -458,6 +458,74 @@ def _svg_approved(rows, limit=10):
     )
 
 
+ROLE_COLORS = {
+    "presidente": "#b91c1c",
+    "vicepresidente": "#ea580c",
+    "secretario": "#7c3aed",
+    "portavoz": "#2563eb",
+    "portavoz_adjunto": "#0ea5e9",
+    "vocal": "#0b5",
+    "adscrito": "#94a3b8",
+}
+ROLE_ORDER = ["presidente", "vicepresidente", "secretario", "portavoz", "portavoz_adjunto", "vocal", "adscrito"]
+
+
+def _svg_matrix(con, limit=40):
+    """Matriz persona × comisión, color por rol (top N personas por nº de comisiones)."""
+    rows = con.execute(
+        "SELECT full_name, party, role, commission_source_id FROM composition_raw"
+    ).fetchall()
+    people = {}
+    for person, party, role, code in rows:
+        p = people.setdefault(person, {"party": party, "commissions": {}})
+        current = p["commissions"].get(code)
+        try:
+            new_rank = ROLE_ORDER.index(role)
+        except ValueError:
+            new_rank = len(ROLE_ORDER)
+        try:
+            old_rank = ROLE_ORDER.index(current)
+        except ValueError:
+            old_rank = len(ROLE_ORDER)
+        if code not in p["commissions"] or new_rank < old_rank:
+            p["commissions"][code] = role
+    codes = sorted({row[3] for row in rows})
+    top = sorted(people.items(), key=lambda kv: (-len(kv[1]["commissions"]), kv[0]))[:limit]
+    if not top or not codes:
+        return '<p class="muted">Sin datos de composición.</p>'
+    left, top_margin, cw, ch = 230, 30, 13, 13
+    width = left + len(codes) * cw + 10
+    height = top_margin + len(top) * ch + 40
+    parts = []
+    for col, code in enumerate(codes):
+        parts.append(
+            f'<text x="{left + col * cw + 4}" y="12" font-size="8" fill="#64748b" '
+            f'transform="rotate(-90 {left + col * cw + 4} 12)">{html.escape(code)}</text>'
+        )
+    for row_index, (person, p) in enumerate(top):
+        y = top_margin + row_index * ch
+        label = f"{person[:34]} ({p['party'] or '?'})"
+        parts.append(f'<text x="0" y="{y + 10}" font-size="9" fill="#334155">{html.escape(label)}</text>')
+        for col, code in enumerate(codes):
+            role = p["commissions"].get(code)
+            if role is None:
+                continue
+            color = ROLE_COLORS.get(role, "#cbd5e1")
+            parts.append(
+                f'<rect x="{left + col * cw}" y="{y}" width="{cw - 2}" height="{ch - 2}" '
+                f'fill="{color}"><title>{html.escape(person)} · {html.escape(code)} · {html.escape(role or "sin cargo")}</title></rect>'
+            )
+    legend = " ".join(
+        f'<span style="display:inline-block;width:.7rem;height:.7rem;background:{color};margin-right:.2rem"></span>{role}'
+        for role, color in ROLE_COLORS.items()
+    )
+    return (
+        f'<p class="muted" style="font-size:.85rem">{legend}</p>'
+        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
+        f'aria-label="Personas por comisión y rol">' + "".join(parts) + "</svg>"
+    )
+
+
 def _svg_groups(con):
     """Miembros en comisiones vs intervenciones, por grupo del Congreso."""
     groups = set(CONGRESS_GROUPS)
@@ -566,6 +634,7 @@ def build(root=BASE):
     approved_chart = _svg_approved(
         [(name, stats.get(source_id, {}).get("aprobadas", 0)) for _, _, name, source_id, _ in rows]
     )
+    matrix_chart = _svg_matrix(con)
     group_counts = {}
     for (speaker,) in con.execute(
         "SELECT orador FROM intervenciones WHERE commission_source_id IS NOT NULL AND orador IS NOT NULL"
@@ -611,6 +680,7 @@ def build(root=BASE):
 <button data-tab="preguntas" class="on">Preguntas</button>
 <button data-tab="resumen">Resumen</button>
 <button data-tab="comisiones">Comisiones</button>
+<button data-tab="cruces">Cruces</button>
 <a href="personas.html">Personas</a>
 <a href="metodologia.html">Metodología</a>
 </nav>
@@ -657,10 +727,15 @@ tarifas estén pendientes de validación.</p>
 <thead><tr><th>Cámara</th><th>Tipo</th><th>Nombre</th><th>Código</th><th>Comp. normalizada</th><th>Sesiones</th><th>Iniciativas</th><th>Enlaces</th></tr></thead>
 <tbody>{table}</tbody></table>
 </section>
+<section id="cruces" hidden>
+<h2>Cruces: personas × comisiones <span class=chip>🔵 derivado</span></h2>
+<p class="muted">Top 40 personas por número de comisiones. Cada celda = cargo en esa comisión; el color indica el rol (leyenda arriba). Los códigos de columna son los de la comisión.</p>
+{matrix_chart}
+</section>
 <p><a href="personas.html">Personas y comisiones</a> · <a href="metodologia.html">Metodología y límites</a></p>
 <script>
 const tabs=[...document.querySelectorAll('[data-tab]')];
-const secs={{preguntas:document.getElementById('preguntas'),resumen:document.getElementById('resumen'),comisiones:document.getElementById('comisiones')}};
+const secs={{preguntas:document.getElementById('preguntas'),resumen:document.getElementById('resumen'),comisiones:document.getElementById('comisiones'),cruces:document.getElementById('cruces')}};
 tabs.forEach(b=>b.addEventListener('click',()=>{{tabs.forEach(x=>x.classList.toggle('on',x===b));for(const k in secs){{secs[k].hidden=k!==b.dataset.tab;}}}}));
 const q=document.querySelector('[data-filter]');
 if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(const row of document.querySelectorAll('#comisiones tbody tr')){{row.hidden=needle && !row.textContent.toLowerCase().includes(needle);}}}});}}
