@@ -998,9 +998,6 @@ def build(root=BASE):
 <div class="qa-list">
 {faq_items}
 </div>
-<h2>Calendario de actividad <span class=chip>🔵 derivado</span></h2>
-<p class="muted">Cada celda = sesiones distintas de esa comisión en ese mes. Se ve cuándo dejó de reunirse cada una.</p>
-{calendar_chart}
 {DATA_LEGEND}
 <script type="application/ld+json">{json.dumps(faq_json, ensure_ascii=False)}</script>
 </section>
@@ -1023,6 +1020,9 @@ tarifas estén pendientes de validación.</p>
 <h2>Sesiones por comisión <span class=chip>🔵 derivado</span></h2>
 <p class="muted">Top 15 por número de fechas de reunión. La lista completa, en la pestaña «Comisiones».</p>
 {chart}
+<h2>Calendario de actividad <span class=chip>🔵 derivado</span></h2>
+<p class="muted">Cada celda = sesiones distintas de esa comisión en ese mes. Se ve cuándo dejó de reunirse cada una.</p>
+{calendar_chart}
 <h2>Grupos: miembros en comisiones vs intervenciones <span class=chip>🔵 derivado</span></h2>
 <p class="muted">«Miembros» = personas distintas con cargo en comisiones (proxy, no escaños de la Cámara). «Intervenciones» = participación, no asistencia.</p>
 {groups_chart}
