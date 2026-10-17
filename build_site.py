@@ -1440,7 +1440,9 @@ intervenciones (<a href="{INTERVENCIONES_SOURCE}">opendata/intervenciones</a>). 
 (<a href="{INICIATIVAS_SOURCE}">opendata/iniciativas</a>: proyectos de ley,
 proposiciones de ley y propuestas de reforma).</li>
 <li><b>Resultados</b>: situación actual de esas iniciativas y las que figuran con resultado aprobado.
-El recuento de leyes no se publica: la fuente mezcla leyes, reales decretos-ley, resoluciones y correcciones.</li>
+El volcado de leyes tiene <b>163 filas que mezclan tipos</b>; tras deduplicar por título/año: <b>34 leyes</b>
+(21 ordinarias + 13 orgánicas) y <b>61 reales decretos-ley</b>. El Senado registra <b>38 leyes</b>; la diferencia
+de criterio/fecha está pendiente de conciliar, así que <b>no se publica un único recuento</b>.</li>
 <li><b>Coste</b>: mensualidad oficial × meses × 14/12. <b>No se publica</b> mientras las
 tarifas estén en <code>pendiente_validacion</code>.</li>
 </ul>
