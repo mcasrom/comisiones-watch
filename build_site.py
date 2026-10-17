@@ -55,6 +55,7 @@ tfoot td{font-weight:600}
 .skip:focus{left:.5rem;top:.5rem;background:var(--fg);color:var(--bg);padding:.5rem}
 a:focus-visible,button:focus-visible,input:focus-visible{outline:.15rem solid currentColor}
 .muted{color:var(--muted)}
+.roles{margin:0;padding-left:1.1rem}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
@@ -414,7 +415,7 @@ tarifas estén pendientes de validación.</p>
 <table><caption>Comisiones del Congreso</caption>
 <thead><tr><th>Cámara</th><th>Tipo</th><th>Nombre</th><th>Código</th><th>Comp. normalizada</th><th>Sesiones</th><th>Iniciativas</th><th>Enlaces</th></tr></thead>
 <tbody>{table}</tbody></table>
-<p><a href="metodologia.html">Metodología y límites</a></p>
+<p><a href="personas.html">Personas y comisiones</a> · <a href="metodologia.html">Metodología y límites</a></p>
 <script>
 const q=document.querySelector('[data-filter]');
 if(q){{
@@ -439,6 +440,7 @@ row.hidden=needle && !row.textContent.toLowerCase().includes(needle);
     for code in sorted(stats):
         _write_ficha(con, web, code, stats)
 
+    _write_personas(con, web)
     _write_metodologia(con, web, stats, total_leyes)
     (web / "llms.txt").write_text(
         f"Observatorio de comisiones del Congreso (XV legislatura, corte {CUTOFF}).\n"
@@ -528,16 +530,44 @@ def _write_ficha(con, web, code, stats):
             return f'<abbr title="{html.escape(GROUP_NAMES[code_party])}">{html.escape(code_party)}</abbr>'
         return html.escape(code_party or "no consta")
 
+    grouped = {}
+    for person, party, label, role, start, end, profile in members:
+        p = grouped.setdefault(
+            person,
+            {"parties": set(), "roles": [], "start": None, "end": None, "profile": None},
+        )
+        if party:
+            p["parties"].add(party)
+        p["roles"].append((label, role, start, end))
+        if start and (p["start"] is None or start < p["start"]):
+            p["start"] = start
+        if end and (p["end"] is None or end > p["end"]):
+            p["end"] = end
+        if profile and not p["profile"]:
+            p["profile"] = profile
+
+    def _roles_cell(roles):
+        if len(roles) == 1:
+            label, role, start, end = roles[0]
+            return html.escape(label or "no consta") + (f" ({html.escape(role)})" if role else "")
+        items = "".join(
+            "<li>"
+            + html.escape(label or "no consta")
+            + (f" ({html.escape(role)})" if role else "")
+            + f" · {html.escape(start or 'no consta')} → {html.escape(_end(end))}</li>"
+            for label, role, start, end in sorted(roles, key=lambda item: (item[2] or "", item[0] or ""))
+        )
+        return f"<ul class=roles>{items}</ul>"
+
     member_rows = "".join(
         "<tr>"
-        f"<td>{html.escape(person)}</td><td>{_party(party)}</td>"
-        f"<td>{html.escape(label or 'no consta')}"
-        + (f" ({html.escape(role)})" if role else "")
-        + "</td>"
-        f"<td>{html.escape(start or 'no consta')}</td>"
-        f"<td>{html.escape(_end(end))}</td>"
-        f"<td>{f'<a href=\"{html.escape(profile)}\">ficha</a>' if profile else 'no consta'}</td></tr>"
-        for person, party, label, role, start, end, profile in members
+        f"<td>{html.escape(person)}</td>"
+        f"<td>{' '.join(_party(x) for x in sorted(p['parties'])) or 'no consta'}</td>"
+        f"<td>{_roles_cell(p['roles'])}</td>"
+        f"<td>{html.escape(p['start'] or 'no consta')}</td>"
+        f"<td>{html.escape(_end(p['end']))}</td>"
+        f"<td>{f'<a href=\"{html.escape(p['profile'])}\">ficha</a>' if p['profile'] else 'no consta'}</td></tr>"
+        for person, p in sorted(grouped.items())
     )
     tipo_rows = "".join(
         f"<tr><td>{html.escape(tipo or '(sin tipo)')}</td><td>{total}</td></tr>"
@@ -563,7 +593,7 @@ def _write_ficha(con, web, code, stats):
     )
     eje_ini = constituted or "¿?"
     ficha_body = f"""
-<p><a href="index.html">Volver</a></p>
+<p><a href="index.html">Volver</a> · <a href="personas.html">Personas</a></p>
 <h1>{html.escape(name)} ({html.escape(code)})</h1>
 <p>{constitucion} Composición cargada: <b>{len(members)}</b> registros; <b>{office}</b> con cargo
 normalizado (<b>{coverage_pct} %</b>) y {pending_roles} sin normalizar.</p>
@@ -617,6 +647,69 @@ intervenciones del opendata del Congreso.</p>
             f"{name}: actividad y resultados",
             ficha_body,
             "Ficha de comisión: constitución, reuniones, trabajos, resultados y composición.",
+        ),
+        encoding="utf-8",
+    )
+
+
+def _person_slug(name):
+    import re
+    import unicodedata
+    value = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value).strip("-")
+    return value or "persona"
+
+
+def _write_personas(con, web):
+    """Página de personas: una fila por persona, con sus comisiones (sin duplicar)."""
+    names = {code: name for code, name in con.execute("SELECT source_id, name FROM commissions")}
+    rows = con.execute(
+        "SELECT full_name, party, commission_source_id, profile_url FROM composition_raw"
+    ).fetchall()
+    people = {}
+    for person, party, code, profile in rows:
+        p = people.setdefault(person, {"parties": set(), "commissions": set(), "profile": None})
+        if party:
+            p["parties"].add(party)
+        p["commissions"].add(code)
+        if profile and not p["profile"]:
+            p["profile"] = profile
+    body_rows = []
+    for person, p in sorted(people.items(), key=lambda kv: (-len(kv[1]["commissions"]), kv[0])):
+        slug = _person_slug(person)
+        groups = " ".join(sorted(p["parties"])) or "no consta"
+        items = "".join(
+            f'<li><a href="comision-{html.escape(code)}.html">{html.escape(names.get(code, code))}</a></li>'
+            for code in sorted(p["commissions"], key=lambda c: names.get(c, c))
+        )
+        body_rows.append(
+            f'<tr id="p-{slug}">'
+            f"<td><b>{html.escape(person)}</b></td>"
+            f"<td>{html.escape(groups)}</td>"
+            f"<td>{len(p['commissions'])}</td>"
+            f"<td><details><summary>ver {len(p['commissions'])}</summary><ul>{items}</ul></details></td>"
+            "</tr>"
+        )
+    body = f"""
+<p><a href="index.html">Volver</a></p>
+<h1>Personas</h1>
+<p>{len(people)} personas con al menos un cargo o adscripción en las comisiones cargadas.
+«N comisiones» cuenta cada comisión una vez, aunque la persona haya tenido varios cargos en ella.</p>
+<p><label>Buscar persona <input type=search data-filter placeholder="Nombre o grupo"></label></p>
+<table><caption>Personas y comisiones</caption>
+<thead><tr><th>Persona</th><th>Grupo(s)</th><th>N comisiones</th><th>Comisiones</th></tr></thead>
+<tbody>{''.join(body_rows)}</tbody></table>
+<script>
+const q=document.querySelector('[data-filter]');
+if(q){{q.addEventListener('input',()=>{{const n=q.value.toLowerCase();for(const r of document.querySelectorAll('tbody tr')){{r.hidden=n && !r.textContent.toLowerCase().includes(n);}}}});}}
+</script>
+<p><a href="metodologia.html">Metodología y límites</a></p>
+"""
+    (web / "personas.html").write_text(
+        _page(
+            "Personas: cargos y comisiones",
+            body,
+            "Personas con cargo o adscripción en las comisiones del Congreso, con sus comisiones.",
         ),
         encoding="utf-8",
     )
