@@ -56,6 +56,9 @@ tfoot td{font-weight:600}
 a:focus-visible,button:focus-visible,input:focus-visible{outline:.15rem solid currentColor}
 .muted{color:var(--muted)}
 .roles{margin:0;padding-left:1.1rem}
+.tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 1rem}
+.tabs button,.tabs a{border:1px solid var(--line);border-radius:999px;padding:.3rem .8rem;background:var(--bg);color:var(--fg);font:inherit;cursor:pointer;text-decoration:none}
+.tabs .on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
@@ -338,6 +341,30 @@ def _collect_stats(con):
     return stats
 
 
+def _svg_sessions(rows, limit=15):
+    """Barras horizontales de sesiones por comisión (solo las que tienen >0)."""
+    rows = [(name, value) for name, value in rows if value > 0]
+    rows.sort(key=lambda item: -item[1])
+    rows = rows[:limit]
+    if not rows:
+        return '<p class="muted">Sin sesiones cargadas.</p>'
+    width, bar_h, gap, left = 720, 22, 6, 270
+    max_v = max(value for _, value in rows) or 1
+    height = 16 + len(rows) * (bar_h + gap)
+    parts = []
+    for index, (name, value) in enumerate(rows):
+        y = 12 + index * (bar_h + gap)
+        bar_w = max(4, round(value / max_v * (width - left - 46)))
+        label = html.escape(name[:46] + ("…" if len(name) > 46 else ""))
+        parts.append(f'<text x="0" y="{y + 15}" font-size="12" fill="#334155">{label}</text>')
+        parts.append(f'<rect x="{left}" y="{y}" width="{bar_w}" height="{bar_h}" rx="3" fill="#0b5"/>')
+        parts.append(f'<text x="{left + bar_w + 6}" y="{y + 15}" font-size="12" font-weight="bold" fill="#0f172a">{value}</text>')
+    return (
+        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
+        f'aria-label="Sesiones por comisión (top {len(rows)})">' + "".join(parts) + "</svg>"
+    )
+
+
 def build(root=BASE):
     con = build_db(root)
     web = root / "web"
@@ -394,7 +421,17 @@ def build(root=BASE):
             f' · <a href="{html.escape(url)}">fuente</a></td></tr>'
         )
     table = "".join(table_rows)
+    chart = _svg_sessions(
+        [(name, len(stats.get(source_id, {}).get("sessions", []))) for _, _, name, source_id, _ in rows]
+    )
     index_body = f"""
+<nav class=tabs aria-label="Secciones">
+<button data-tab="resumen" class="on">Resumen</button>
+<button data-tab="comisiones">Comisiones</button>
+<a href="personas.html">Personas</a>
+<a href="metodologia.html">Metodología</a>
+</nav>
+<section id="resumen">
 <h1>Comisiones: actividad, trabajos, resultados y coste</h1>
 <p>Congreso de los Diputados, XV legislatura (disuelta el 6-oct-2026). Fecha de corte: {CUTOFF}.
 Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
@@ -411,21 +448,24 @@ volcado de intervenciones ({total_intervenciones:,} intervenciones cargadas). La
 son las que tienen cada comisión como competente. El coste no se publica mientras las
 tarifas estén pendientes de validación.</p>
 {DATA_LEGEND}
+<h2>Sesiones por comisión <span class=chip>🔵 derivado</span></h2>
+<p class="muted">Top 15 por número de fechas de reunión. La lista completa, en la pestaña «Comisiones».</p>
+{chart}
+</section>
+<section id="comisiones" hidden>
+<h2>Comisiones</h2>
 <p><label>Filtrar listado <input type=search data-filter placeholder="Escribe cámara, tipo o nombre"></label></p>
 <table><caption>Comisiones del Congreso</caption>
 <thead><tr><th>Cámara</th><th>Tipo</th><th>Nombre</th><th>Código</th><th>Comp. normalizada</th><th>Sesiones</th><th>Iniciativas</th><th>Enlaces</th></tr></thead>
 <tbody>{table}</tbody></table>
+</section>
 <p><a href="personas.html">Personas y comisiones</a> · <a href="metodologia.html">Metodología y límites</a></p>
 <script>
+const tabs=[...document.querySelectorAll('[data-tab]')];
+const secs={{resumen:document.getElementById('resumen'),comisiones:document.getElementById('comisiones')}};
+tabs.forEach(b=>b.addEventListener('click',()=>{{tabs.forEach(x=>x.classList.toggle('on',x===b));for(const k in secs){{secs[k].hidden=k!==b.dataset.tab;}}}}));
 const q=document.querySelector('[data-filter]');
-if(q){{
-q.addEventListener('input',()=>{{
-const needle=q.value.toLowerCase();
-for(const row of document.querySelectorAll('tbody tr')){{
-row.hidden=needle && !row.textContent.toLowerCase().includes(needle);
-}}
-}});
-}}
+if(q){{q.addEventListener('input',()=>{{const needle=q.value.toLowerCase();for(const row of document.querySelectorAll('#comisiones tbody tr')){{row.hidden=needle && !row.textContent.toLowerCase().includes(needle);}}}});}}
 </script>
 """
     (web / "index.html").write_text(
