@@ -4,13 +4,13 @@ Vigilancia ciudadana de las comisiones del Congreso y del Senado: **actividad
 real frente a coste estimado** de sus cargos. Datos públicos verificables,
 mismo rasero para todas las comisiones y todos los grupos.
 
-> **Estado: piloto, sin desplegar.** No hay web pública. Lo verificado hasta
-> hoy: 50 comisiones del Congreso descubiertas; composición cargable por **vía
-> manual CSV** (`ingest_csv.py`; probada con 4 comisiones, 378 filas) y muestra
-> 301 confirmada **85/85** CSV↔JSON; semilla 2026 de 10 tarifas (todas
-> **pendientes** de validación) y metodología honesta. Coste y actividad
-> publicados: **dato no disponible**. Ver `docs/PROBLEMA_FUENTE_CONGRESO.md`,
-> `docs/SPRINT_PILOTO.md` y `docs/HOJA_DE_RUTA.md`.
+> **Estado: desplegado** en <https://comisiones.pruebapublica.com>.
+> 50 órganos del Congreso, 864 sesiones, 225 iniciativas y 3.489 registros
+> de composición. Las coincidencias ambiguas **no se atribuyen**: quedan como
+> «sin atribuir» (43 intervenciones de las comisiones de investigación solapadas).
+> Datos congelados en la XV legislatura, corte **2026-10-12**. Senado, PNL,
+> comparecencias solicitadas y coste siguen sin datos suficientes; se marcan,
+> no se estiman. Tests: **32/32**.
 
 ## Estructura
 
@@ -27,7 +27,7 @@ mismo rasero para todas las comisiones y todos los grupos.
   gzip y manifiesto. Requiere `curl`.
 - `collector.py`, `schema.sql` — esqueleto inicial (CLI mínimo y esquema base).
 - `rates_seed.csv` — 10 tarifas oficiales 2026, **todas pendientes**.
-- `tests/` — parsers con fixtures reales + métricas + web + ingesta CSV. `16/16`.
+- `tests/` — parsers con fixtures reales + métricas + web + ingesta CSV. `32/32`.
 - `docs/` — sprint piloto, staging y narrativa del bloqueo de la fuente.
 
 ## Uso

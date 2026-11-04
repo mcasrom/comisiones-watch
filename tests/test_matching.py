@@ -59,7 +59,7 @@ class MatchTest(unittest.TestCase):
             INDEX,
         )
         self.assertEqual(result["how"], "ambiguo")
-        self.assertEqual(result["source_id"], "362")
+        self.assertIsNone(result["source_id"])
         self.assertEqual(result["candidatos"], ["362", "363"])
 
     def test_no_comisiones_sin_mapear(self):

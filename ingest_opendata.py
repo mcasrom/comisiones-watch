@@ -166,10 +166,10 @@ class MatchCache:
             "score": 0.0,
         }
         self.cache[key] = result
-        if result["source_id"] is None:
-            self.unmatched[key] = self.unmatched.get(key, 0) + 1
-        elif result["how"] == "ambiguo":
+        if result["how"] == "ambiguo":
             self.ambiguous[key] = result.get("candidatos", [])
+        elif result["source_id"] is None:
+            self.unmatched[key] = self.unmatched.get(key, 0) + 1
         return result
 
 

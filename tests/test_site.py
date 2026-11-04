@@ -9,6 +9,8 @@ ROOT = Path(__file__).resolve().parent.parent
 class SiteTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if not (ROOT / "data" / "comisiones.db").exists():
+            raise unittest.SkipTest("sin data/comisiones.db: test de sitio requiere fixture local")
         cls.web = build(ROOT)
         cls.pages = {
             name: (cls.web / name).read_text(encoding="utf-8")
@@ -23,13 +25,11 @@ class SiteTest(unittest.TestCase):
                 self.assertIn('href="#contenido"', html)
         index = self.pages["index.html"]
         self.assertIn("Con composición", index)
-        self.assertIn("Sesiones (XV)", index)
+        self.assertIn("Sesiones por comisión", index)
         self.assertIn("no se estima", index)
         ficha = self.pages["comision-301.html"]
-        for section in ("Reuniones", "Trabajos", "Resultados", "Coste", "Composición oficial"):
+        for section in ("Reuniones", "Actividad", "Resultados", "Coste", "Composición oficial"):
             self.assertIn(section, ficha)
-        self.assertIn("Sin reuniones cargadas", ficha)
-        self.assertIn("dato no disponible", ficha)
         self.assertIn("SELECT COUNT(*) FROM commissions;", self.pages["metodologia.html"])
         self.assertIn("pendiente_validacion", self.pages["metodologia.html"])
         self.assertIn("emparej", self.pages["metodologia.html"])

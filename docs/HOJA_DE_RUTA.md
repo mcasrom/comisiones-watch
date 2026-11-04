@@ -1,8 +1,10 @@
 # Hoja de ruta — cómo seguir (12-oct-2026)
 
-Estado: **piloto local, sin desplegar**. 4 comisiones con composición verificada
-(Constitucional 85, Exteriores 99, Justicia 93, Defensa 101 = 378 filas),
-listado de 50, semilla de 10 tarifas (todas pendientes), 0 sesiones. Tests 16/16.
+Estado: **desplegado** en <https://comisiones.pruebapublica.com>. 50 órganos,
+864 sesiones, 225 iniciativas y 3.489 registros de composición; corte 2026-10-12.
+Tests **32/32**. La atribución ambigua ya no asigna `min(ties)`: queda
+**sin atribuir** (43 intervenciones). Senado, PNL, comparecencias solicitadas y
+coste siguen pendientes de fuente/validación.
 
 ## Flujo de trabajo actual
 

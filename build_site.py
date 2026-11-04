@@ -747,7 +747,8 @@ def _write_csv(web, rows, stats, coverage):
             norm, total = coverage.get(code, (0, 0))
             writer.writerow(
                 [code, chamber, kind, name, len(info.get("sessions", [])),
-                 info.get("iniciativas", 0), info.get("aprobadas", 0), norm, total]
+                 info.get("iniciativas", 0),
+                 ("" if kind == "investigacion" else info.get("aprobadas", 0)), norm, total]
             )
 
 
@@ -938,13 +939,13 @@ def build(root=BASE):
     no_sessions = [name for _, _, name, code, _ in rows if not stats.get(code, {}).get("sessions")]
     total_aprobadas = sum(s.get("aprobadas", 0) for s in stats.values())
     investig = [
-        (name, len(stats.get(code, {}).get("sessions", [])), stats.get(code, {}).get("aprobadas", 0))
+        (name, len(stats.get(code, {}).get("sessions", [])), stats.get(code, {}).get("aprobadas", 0), kind)
         for _, kind, name, code, _ in rows if kind == "investigacion"
     ]
     no_sessions_html = ", ".join(html.escape(name) for name in no_sessions) or "ninguna"
     investig_html = "".join(
-        f"<li>{html.escape(name)} · {sesiones} sesiones · {aprobadas} aprobadas</li>"
-        for name, sesiones, aprobadas in investig
+        f"<li>{html.escape(name)} · {sesiones} sesiones · {('—' if kind == 'investigacion' else aprobadas)} aprobadas</li>"
+        for name, sesiones, aprobadas, kind in investig
     )
     faq = [
         (
@@ -1078,7 +1079,8 @@ publica: el volcado mezcla leyes, reales decretos-ley, resoluciones y correccion
 <thead><tr><th data-sort="0">Cámara</th><th data-sort="1">Tipo</th><th data-sort="2">Nombre</th><th data-sort="3">Código</th><th data-sort="4">Comp. normalizada</th><th data-sort="5">Sesiones</th><th data-sort="6">Iniciativas</th><th>Enlaces</th></tr></thead>
 <tbody>{table}</tbody></table>
 <p class="muted">⚠ «0 sesiones» = sin registro en el opendata (posible dato incompleto; no implica que no se reuniera).
-«0 iniciativas» = ninguna atribuida a la comisión como competente.</p>
+«0 iniciativas» = ninguna atribuida a la comisión como competente. «Comp. normalizada» cuenta
+cargos identificados; el total incluye filas sin diccionario de cargos (la diferencia no es un error de recuento).</p>
 </section>
 <section id="cruces" hidden>
 <h2>Cruces: personas × comisiones <span class=chip>🔵 derivado</span></h2>
@@ -1138,10 +1140,16 @@ if(tabla){{
 
 
 def _write_ficha(con, web, code, stats):
-    name = con.execute(
-        "SELECT name FROM commissions WHERE source_id=?", (code,)
-    ).fetchone()[0]
+    commission = con.execute(
+        "SELECT name, kind FROM commissions WHERE source_id=?", (code,)
+    ).fetchone()
+    if not commission:
+        # Una comisión puede aparecer en composición o intervenciones y no en
+        # el listado: no se inventa una ficha sin nombre.
+        return
+    name, kind = commission
     info = stats[code]
+    aprobadas_label = "no aplica" if kind == "investigacion" else info["aprobadas"]
     members = con.execute(
         "SELECT full_name, party, role_label, role, start_date, end_date,"
         " profile_url FROM composition_raw"
@@ -1270,12 +1278,18 @@ def _write_ficha(con, web, code, stats):
             (code,),
         )
     )
-    trabajos = (
-        f"<p>Iniciativas competencia de la comisión: <b>{info['iniciativas']}</b>"
-        f" ({info['aprobadas']} con resultado «Aprobado»).</p>"
-        if info["iniciativas"]
-        else "<p>Sin iniciativas cargadas con esta comisión como competente.</p>"
-    )
+    if not info["iniciativas"]:
+        trabajos = "<p>Sin iniciativas cargadas con esta comisión como competente.</p>"
+    elif kind == "investigacion":
+        trabajos = (
+            f"<p>Iniciativas competencia de la comisión: <b>{info['iniciativas']}</b>. "
+            "Comisión de investigación: no tiene iniciativa legislativa propia; «aprobadas» no aplica.</p>"
+        )
+    else:
+        trabajos = (
+            f"<p>Iniciativas competencia de la comisión: <b>{info['iniciativas']}</b>"
+            f" ({info['aprobadas']} con resultado «Aprobado»).</p>"
+        )
     eje_ini = constituted or "¿?"
     ficha_body = f"""
 <p><a href="index.html">Volver</a> · <a href="personas.html">Personas</a></p>
@@ -1314,7 +1328,7 @@ Oradores distintos: <b>{speakers}</b>. «Participa» aquí significa <b>interven
 <li class="{'ok' if sessions else 'na'}">Sesiones: {sessions_n}</li>
 <li class="{'ok' if comparecencias else 'na'}">Comparecencias identificadas: {comparecencias}</li>
 <li class="{'ok' if info['iniciativas'] else 'na'}">Iniciativas: {info['iniciativas']}</li>
-<li class="{'ok' if info['aprobadas'] else 'na'}">Aprobadas: {info['aprobadas']}</li>
+<li class="{'ok' if kind != 'investigacion' and info['aprobadas'] else 'na'}">Aprobadas: {aprobadas_label}</li>
 <li class="na">Dictamen/conclusiones: ⚪ no consta</li>
 <li class="na">Ley publicada por comisión: ⚪ no consta</li>
 </ol>
@@ -1389,7 +1403,8 @@ def _write_personas(con, web):
 <p><a href="index.html">Volver</a></p>
 <h1>Personas</h1>
 <p>{len(people)} personas con al menos un cargo o adscripción en las comisiones cargadas.
-«N comisiones» cuenta cada comisión una vez, aunque la persona haya tenido varios cargos en ella.</p>
+«N comisiones» cuenta cada comisión una vez, aunque la persona haya tenido varios cargos en ella.
+Es una medida de <b>estructura</b>, no de esfuerzo: los grupos pequeños suelen ocupar más comisiones.</p>
 <p><label>Buscar persona <input type=search data-filter placeholder="Nombre o grupo"></label></p>
 <table><caption>Personas y comisiones</caption>
 <thead><tr><th>Persona</th><th>Grupo(s)</th><th>N comisiones</th><th>Comisiones</th></tr></thead>
@@ -1465,6 +1480,9 @@ SELECT comision_source_id, COUNT(*) FROM iniciativas GROUP BY 1;
 SELECT COUNT(*) FROM leyes_aprobadas;
 SELECT COUNT(*) FROM rate_seed WHERE status='aprobada';</code></pre>
 <h2>Emparejado de nombres</h2>
+<p>Las coincidencias ambiguas <b>no se asignan</b>: quedan como «sin atribuir» y sus
+candidatos se conservan en <code>data/opendata_manifest.json</code>. En esta base hay
+<b>43 intervenciones</b> en esa situación (comisiones de investigación solapadas).</p>
 <p>El opendata usa nombres abreviados («Eco. Social», «S. Social», «Parlam.»). Se normalizan
 y se casan con el nombre oficial; las comisiones de investigación se casan por palabras
 significativas. Lo que no casa queda visible en <code>data/opendata_manifest.json</code> y no se

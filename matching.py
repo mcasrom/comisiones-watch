@@ -129,7 +129,9 @@ def match_organ(name, index):
     ties = [row[2] for row in scored if row[0] == best_containment and row[1] == best_inter]
     if len(ties) > 1:
         return {
-            "source_id": min(ties),
+            # No se atribuye a ciegas: la comisión queda sin asignar y los
+            # candidatos se conservan para revisión humana.
+            "source_id": None,
             "how": "ambiguo",
             "score": round(best_containment, 3),
             "candidatos": sorted(ties),
