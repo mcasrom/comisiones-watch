@@ -33,6 +33,11 @@ class SiteTest(unittest.TestCase):
         self.assertIn("SELECT COUNT(*) FROM commissions;", self.pages["metodologia.html"])
         self.assertIn("pendiente_validacion", self.pages["metodologia.html"])
         self.assertIn("emparej", self.pages["metodologia.html"])
+        personas = (self.web / "personas.html").read_text(encoding="utf-8")
+        self.assertLessEqual(len(personas.encode("utf-8")), 300 * 1024)
+        self.assertTrue((self.web / "data" / "personas.json").exists())
+        self.assertTrue((self.web / "data" / "datos.json").exists())
+        self.assertTrue((self.web / "data" / "version.json").exists())
 
     def test_ficha_por_comision_cargada(self):
         import sqlite3

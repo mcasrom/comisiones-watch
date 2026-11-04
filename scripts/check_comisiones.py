@@ -18,7 +18,9 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB = os.path.join(BASE, "data", "comisiones.db")
 LOG = "/home/deploy/scripts/comisiones_goteo.log"
 STATE = "/home/deploy/scripts/state/check_comisiones.json"
-ENV = "/home/deploy/nearme-osint/.env"
+ENV_NEW = os.environ.get("COMISIONES_ENV", "/home/deploy/comisiones-watch/.env")
+ENV_OLD = "/home/deploy/nearme-osint/.env"
+ENV = ENV_NEW if os.path.exists(ENV_NEW) else ENV_OLD
 MAX_HOURS = 36
 MIN_INTERVENCIONES = 1000
 

@@ -11,11 +11,14 @@ las tarifas estén `pendiente_validacion`. Todo lo que no tiene dato se marca
 como no disponible; nada se inventa. Reejecutable, sin red.
 """
 import csv
+import hashlib
 import html
 import json
 import re
 import shutil
 import sqlite3
+import statistics
+from datetime import datetime, timezone
 from pathlib import Path
 
 from adapters.congreso import (
@@ -735,6 +738,28 @@ def _write_og(web, discovered, sessions, approved):
     image.save(web / "og.png")
 
 
+def _write_data_json(web, rows, stats, coverage):
+    payload = {"corte": CUTOFF, "camara": "Congreso", "comisiones": []}
+    for chamber, kind, name, code, url in rows:
+        info = stats.get(code, {})
+        norm, total = coverage.get(code, (0, 0))
+        payload["comisiones"].append({
+            "codigo": code, "camara": chamber, "tipo": kind, "nombre": name,
+            "sesiones": len(info.get("sessions", [])),
+            "iniciativas": info.get("iniciativas", 0),
+            "aprobadas": None if kind == "investigacion" else info.get("aprobadas", 0),
+            "composicion_normalizada": norm, "composicion_total": total,
+            "url": f"/comision-{code}.html", "fuente": url,
+        })
+    data_dir = web / "data"; data_dir.mkdir(exist_ok=True)
+    raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
+    (data_dir / "datos.json").write_bytes(raw)
+    (data_dir / "version.json").write_text(json.dumps({
+        "corte": CUTOFF, "generado": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "sha256": hashlib.sha256(raw).hexdigest(), "comisiones": len(payload["comisiones"]),
+    }, ensure_ascii=False), encoding="utf-8")
+
+
 def _write_csv(web, rows, stats, coverage):
     with open(web / "datos.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle, delimiter=";")
@@ -871,6 +896,21 @@ def build(root=BASE):
     ).fetchone()[0]
     total_leyes = con.execute("SELECT COUNT(*) FROM leyes_aprobadas").fetchone()[0]
     stats = _collect_stats(con)
+    kinds = {code: kind for code, kind in con.execute("SELECT source_id, kind FROM commissions")}
+    by_kind = {}
+    for code, info in stats.items():
+        metrics = info.get("metrics")
+        if metrics and metrics.get("substantive_per_month") is not None:
+            by_kind.setdefault(kinds.get(code), []).append(metrics["substantive_per_month"])
+    medians = {kind: statistics.median(values) for kind, values in by_kind.items() if values}
+    for code, info in stats.items():
+        metrics = info.get("metrics")
+        kind = kinds.get(code)
+        if not metrics or metrics.get("status") != "actividad_normal":
+            continue
+        median = medians.get(kind)
+        if median and metrics["substantive_per_month"] < 0.5 * median:
+            metrics["status"] = "actividad_baja"
 
     coverage = {}
     for code, total, norm in con.execute(
@@ -931,7 +971,14 @@ def build(root=BASE):
         match = re.search(r"\(([^)]+)\)\s*$", speaker or "")
         if match and match.group(1) in GROUP_LABELS:
             group_counts[match.group(1)] = group_counts.get(match.group(1), 0) + 1
+    group_members = {}
+    for party, n in con.execute(
+        "SELECT party, COUNT(DISTINCT full_name) FROM composition_raw GROUP BY party"
+    ):
+        group_members[party] = int(n)
     top_group, top_group_n = max(group_counts.items(), key=lambda kv: kv[1], default=("—", 0))
+    top_group_members = group_members.get(top_group, 0)
+    top_group_rate = (top_group_n / top_group_members) if top_group_members else None
     top_appr_name, top_appr_n = max(
         ((name, stats.get(code, {}).get("aprobadas", 0)) for _, _, name, code, _ in rows),
         key=lambda item: item[1], default=("—", 0),
@@ -964,8 +1011,10 @@ def build(root=BASE):
         ),
         (
             "¿Quién participa más?",
-            f"El grupo con más intervenciones es <b>{html.escape(GROUP_LABELS.get(top_group, top_group))}</b> ({top_group_n}); el ranking por persona, con denominadores, está en <a href=\"personas.html\">Personas</a>. «Participa» = intervenciones, no asistencia.",
-            f"El grupo con más intervenciones es {GROUP_LABELS.get(top_group, top_group)} ({top_group_n}). Participar = intervenciones, no asistencia.",
+            f"El grupo con más intervenciones es <b>{html.escape(GROUP_LABELS.get(top_group, top_group))}</b> ({top_group_n} intervenciones"
+            + (f", {top_group_rate:.1f} por miembro" if top_group_rate else "")
+            + f"); el ranking por persona, con denominadores, está en <a href=\"personas.html\">Personas</a>. «Participa» = intervenciones, no asistencia.",
+            f"El grupo con más intervenciones es {GROUP_LABELS.get(top_group, top_group)} ({top_group_n} intervenciones). Participar = intervenciones, no asistencia.",
             ("href", "personas.html"),
             "Buscar persona",
         ),
@@ -1018,6 +1067,7 @@ def build(root=BASE):
     }
     _write_og(web, discovered, total_sesiones, total_aprobadas)
     _write_csv(web, rows, stats, coverage)
+    _write_data_json(web, rows, stats, coverage)
     index_body = f"""
 <section id="preguntas">
 <div class="hero">
@@ -1370,7 +1420,7 @@ def _person_slug(name):
 
 
 def _write_personas(con, web):
-    """Página de personas: una fila por persona, con sus comisiones (sin duplicar)."""
+    """Personas: HTML ligero + JSON con búsqueda y paginación en cliente."""
     names = {code: name for code, name in con.execute("SELECT source_id, name FROM commissions")}
     rows = con.execute(
         "SELECT full_name, party, commission_source_id, profile_url FROM composition_raw"
@@ -1383,35 +1433,64 @@ def _write_personas(con, web):
         p["commissions"].add(code)
         if profile and not p["profile"]:
             p["profile"] = profile
-    body_rows = []
+    data = []
     for person, p in sorted(people.items(), key=lambda kv: (-len(kv[1]["commissions"]), kv[0])):
-        slug = _person_slug(person)
-        groups = " ".join(sorted(p["parties"])) or "no consta"
-        items = "".join(
-            f'<li><a href="comision-{html.escape(code)}.html">{html.escape(names.get(code, code))}</a></li>'
-            for code in sorted(p["commissions"], key=lambda c: names.get(c, c))
-        )
-        body_rows.append(
-            f'<tr id="p-{slug}">'
-            f"<td><b>{html.escape(person)}</b></td>"
-            f"<td>{html.escape(groups)}</td>"
-            f"<td>{len(p['commissions'])}</td>"
-            f"<td><details><summary>ver {len(p['commissions'])}</summary><ul>{items}</ul></details></td>"
-            "</tr>"
-        )
+        data.append({
+            "name": person,
+            "groups": sorted(p["parties"]),
+            "commissions": [
+                {"code": code, "name": names.get(code, code)}
+                for code in sorted(p["commissions"], key=lambda c: names.get(c, c))
+            ],
+        })
+    (web / "data").mkdir(exist_ok=True)
+    (web / "data" / "personas.json").write_text(
+        json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+    )
     body = f"""
 <p><a href="index.html">Volver</a></p>
 <h1>Personas</h1>
 <p>{len(people)} personas con al menos un cargo o adscripción en las comisiones cargadas.
 «N comisiones» cuenta cada comisión una vez, aunque la persona haya tenido varios cargos en ella.
 Es una medida de <b>estructura</b>, no de esfuerzo: los grupos pequeños suelen ocupar más comisiones.</p>
-<p><label>Buscar persona <input type=search data-filter placeholder="Nombre o grupo"></label></p>
-<table><caption>Personas y comisiones</caption>
+<p><label>Buscar persona <input type=search id=personas-filter placeholder="Nombre o grupo"></label>
+<button class="cta" type="button" id=personas-more hidden>Mostrar 100 más</button>
+<span class="muted" id=personas-count></span></p>
+<table id=personas-table><caption>Personas y comisiones</caption>
 <thead><tr><th>Persona</th><th>Grupo(s)</th><th>N comisiones</th><th>Comisiones</th></tr></thead>
-<tbody>{''.join(body_rows)}</tbody></table>
+<tbody id=personas-body></tbody></table>
+<noscript><p>Activa JavaScript para cargar el listado; el JSON completo está en
+<a href="data/personas.json">data/personas.json</a>.</p></noscript>
 <script>
-const q=document.querySelector('[data-filter]');
-if(q){{q.addEventListener('input',()=>{{const n=q.value.toLowerCase();for(const r of document.querySelectorAll('tbody tr')){{r.hidden=n && !r.textContent.toLowerCase().includes(n);}}}});}}
+(function(){{
+  let all = [], shown = 100;
+  const body = document.getElementById('personas-body');
+  const q = document.getElementById('personas-filter');
+  const more = document.getElementById('personas-more');
+  const count = document.getElementById('personas-count');
+  function render(){{
+    const needle = (q.value || '').toLowerCase();
+    const filtered = all.filter(p => !needle || p.name.toLowerCase().includes(needle) || p.groups.join(' ').toLowerCase().includes(needle));
+    body.innerHTML = '';
+    filtered.slice(0, shown).forEach(p => {{
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td'); const b = document.createElement('b'); b.textContent = p.name; td1.appendChild(b);
+      const td2 = document.createElement('td'); td2.textContent = p.groups.join(' ') || 'no consta';
+      const td3 = document.createElement('td'); td3.textContent = p.commissions.length;
+      const td4 = document.createElement('td');
+      const det = document.createElement('details'); const sum = document.createElement('summary'); sum.textContent = 'ver ' + p.commissions.length; det.appendChild(sum);
+      const ul = document.createElement('ul');
+      p.commissions.forEach(c => {{ const li = document.createElement('li'); const a = document.createElement('a'); a.href = 'comision-' + c.code + '.html'; a.textContent = c.name; li.appendChild(a); ul.appendChild(li); }});
+      det.appendChild(ul); td4.appendChild(det);
+      tr.append(td1, td2, td3, td4); body.appendChild(tr);
+    }});
+    if (count) count.textContent = filtered.length + ' personas' + (filtered.length > shown ? ' · mostrando ' + shown : '');
+    if (more) more.hidden = filtered.length <= shown;
+  }}
+  q.addEventListener('input', () => {{ shown = 100; render(); }});
+  more.addEventListener('click', () => {{ shown += 100; render(); }});
+  fetch('data/personas.json').then(r => {{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }}).then(d => {{ all = d; render(); }}).catch(e => {{ body.textContent = 'No se pudo cargar el listado: ' + e.message; }});
+}})();
 </script>
 <p><a href="metodologia.html">Metodología y límites</a></p>
 """
