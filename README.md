@@ -65,6 +65,18 @@ nice -n 19 python3 scripts/fetch_composiciones.py --out data/bruto-congreso \
 despacio). Máximo 3 intentos por sesión; ante `503`/HTML, parar y registrar el
 fallo en el manifiesto en vez de insistir.
 
+## Datos abiertos y rendimiento
+
+- `/datos.csv` — una fila por comisión.
+- `/data/datos.json` — mismo dataset con corte, URLs y estado de cada comisión.
+- `/data/version.json` — corte, fecha de generación y **SHA-256** del JSON.
+- `/data/personas.json` — personas, grupos y comisiones; `personas.html` es una
+  página ligera (**~10 KB**) que busca y pagina en cliente sobre ese JSON.
+- Actividad baja calculada con **mediana de pares**; las coincidencias ambiguas
+  quedan **sin atribuir** y no suman sesiones a ninguna comisión.
+- Senado, PNL, comparecencias solicitadas, subcomisiones y coste siguen fuera:
+  no hay fuente suficiente y no se estiman.
+
 ## Rigor
 
 - Cada cifra con fuente enlazada, vigencia y fecha de corte.
