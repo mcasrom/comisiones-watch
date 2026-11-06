@@ -79,16 +79,24 @@ def fetch(url, *, data=None, referer=None):
             "%{http_code}\n%{content_type}\n",
             url,
         ]
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
-        status_text, content_type = (completed.stdout.splitlines() + ["", ""])[:2]
-        try:
-            status = int(status_text)
-        except ValueError:
-            status = 0
-        payload = (
-            Path(body_file.name).read_bytes() if status else completed.stderr.encode()
-        )
-        return status, payload, content_type.split(";")[0]
+        last = (0, b"", "")
+        for attempt in range(3):
+            completed = subprocess.run(command, capture_output=True, text=True, check=False)
+            status_text, content_type = (completed.stdout.splitlines() + ["", ""])[:2]
+            try:
+                status = int(status_text)
+            except ValueError:
+                status = 0
+            payload = (
+                Path(body_file.name).read_bytes() if status else completed.stderr.encode()
+            )
+            last = (status, payload, content_type.split(";")[0])
+            # 0 = timeout/conexión; 5xx/429 = borde saturado. 404 no se reintenta.
+            if status == 200 or status not in {0, 429, 500, 502, 503, 504}:
+                return last
+            if attempt < 2:
+                time.sleep(4 * (attempt + 1))
+        return last
     except Exception as exc:  # noqa: BLE001  (un fallo debe ser visible, no silencioso)
         return 0, str(exc).encode(), ""
     finally:
