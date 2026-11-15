@@ -92,3 +92,13 @@ AGPL-3.0. Ver `LICENSE`.
 ## Vigilancia del Senado
 
 `scripts/watch_senado.py` consulta semanalmente el catálogo/transparencia del Senado y avisa solo si aparece una entrada nueva de composición de comisiones. No descarga datos ni evita el bloqueo. Programado los lunes a las 09:25; log en `/home/deploy/scripts/watch_senado.log`.
+
+## Cruces y responsabilidad
+
+La pestaña **Cruces** incluye tres lecturas:
+
+- **Quién dirige:** presidencias, vicepresidencias y secretarías por grupo.
+- **Quién acumula responsabilidades:** tabla de personas por número de comisiones y cargos directivos, con filtro.
+- **Responsabilidad frente a actividad:** dispersión entre comisiones e intervenciones registradas.
+
+Advertencia: acumular cargos no mide dedicación; las intervenciones no son asistencia ni calidad del trabajo. Solo se atribuyen cuando el nombre coincide exactamente.

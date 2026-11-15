@@ -14,6 +14,7 @@ import csv
 import hashlib
 import html
 import json
+import math
 import re
 import shutil
 import sqlite3
@@ -92,7 +93,7 @@ header.site nav{display:flex;flex-wrap:wrap;gap:.55rem;margin-left:auto}
 header.site nav a,header.site nav button{border:0;background:none;color:var(--fg);font:inherit;font-size:.9rem;cursor:pointer;text-decoration:none;padding:.15rem .3rem}
 header.site nav a:hover,header.site nav button:hover{color:var(--accent)}
 header.site nav .on{color:var(--accent);font-weight:700}
-.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
+.legend{display:flex;gap:.8rem;flex-wrap:wrap;margin:.4rem 0;font-size:.9rem}.legend i{display:inline-block;width:.7rem;height:.7rem;margin-right:.25rem}.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
 """
@@ -487,6 +488,9 @@ CONGRESS_GROUPS = ["GP", "GS", "GVOX", "GSUMAR", "GR", "GJxCAT", "GMx", "GEH Bil
 GROUP_LABELS = {
     "GP": "Populares", "GS": "Socialistas", "GVOX": "VOX", "GSUMAR": "Sumar",
     "GR": "Republicano", "GJxCAT": "Junts", "GMx": "Mixto", "GEH Bildu": "EH Bildu",
+    "SGPP": "Populares (Senado)", "SGPS": "Socialistas (Senado)",
+    "SGPIC": "Izquierda Confederal (Senado)", "SGPERB": "ERC-EH Bildu (Senado)",
+    "SGPV": "Vasco (Senado)",
 }
 
 
@@ -667,6 +671,123 @@ def _svg_matrix(con, limit=40):
         + "".join(parts) + "</svg>"
     )
 
+
+DIRECTIVE = {"presidente", "vicepresidente", "secretario"}
+
+def _norm_person(name):
+    name = re.sub(r"\s*\([^)]*\)\s*$", "", str(name or ""))
+    return re.sub(r"\s+", " ", name).strip().lower()
+
+def _responsibility_data(con):
+    people = {}
+    for name, party, role, code in con.execute(
+        "SELECT full_name, party, role, commission_source_id FROM composition_raw"
+    ):
+        if not name or not code:
+            continue
+        p = people.setdefault(name, {"party": party or "no consta", "commissions": set(), "directive": set()})
+        p["commissions"].add(code)
+        if role in DIRECTIVE:
+            p["directive"].add((code, role))
+    activity = {}
+    for speaker, n in con.execute(
+        "SELECT orador, COUNT(*) FROM intervenciones WHERE commission_source_id IS NOT NULL AND orador IS NOT NULL GROUP BY orador"
+    ):
+        key = _norm_person(speaker)
+        if key:
+            activity[key] = activity.get(key, 0) + int(n)
+    for name, p in people.items():
+        p["activity"] = activity.get(_norm_person(name), 0)
+    return people
+
+def _group_label(party):
+    return GROUP_LABELS.get(party, party or "no consta")
+
+def _svg_directive(people):
+    counts = {}
+    for p in people.values():
+        for _code, role in p["directive"]:
+            key = (p["party"] or "no consta", role)
+            counts[key] = counts.get(key, 0) + 1
+    groups = sorted({g for g, _ in counts}, key=lambda g: -sum(v for (x, _), v in counts.items() if x == g))
+    if not groups:
+        return '<p class="muted">Sin cargos directivos registrados.</p>'
+    roles = ["presidente", "vicepresidente", "secretario"]
+    colors = {"presidente": "#b91c1c", "vicepresidente": "#ea580c", "secretario": "#7c3aed"}
+    max_total = max(sum(counts.get((g, r), 0) for r in roles) for g in groups) or 1
+    left, width, row_h = 145, 470, 26
+    height = 8 + len(groups) * row_h
+    parts = []
+    for i, g in enumerate(groups):
+        y = 6 + i * row_h
+        total = sum(counts.get((g, r), 0) for r in roles)
+        parts.append(f'<text x="0" y="{y+13}" font-size="11" fill="#334155">{html.escape(_group_label(g))}</text>')
+        cursor = left
+        for role in roles:
+            n = counts.get((g, role), 0)
+            if not n:
+                continue
+            w = max(2, round(n / max_total * width))
+            parts.append(f'<rect x="{cursor}" y="{y}" width="{w}" height="14" fill="{colors[role]}"><title>{html.escape(_group_label(g))} · {role}: {n}</title></rect>')
+            cursor += w
+        parts.append(f'<text x="{left + width + 8}" y="{y+12}" font-size="10" font-weight="bold" fill="#0f172a">{total}</text>')
+    return (
+        '<div class="legend">'
+        '<span><i style="background:#b91c1c"></i>presidencias</span>'
+        '<span><i style="background:#ea580c"></i>vicepresidencias</span>'
+        '<span><i style="background:#7c3aed"></i>secretarías</span></div>'
+        f'<svg viewBox="0 0 {left+width+40} {height}" width="100%" role="img" aria-label="Cargos directivos por grupo">'
+        + "".join(parts) + '</svg>'
+    )
+
+def _responsibility_table(people, limit=40):
+    rows = sorted(
+        people.items(),
+        key=lambda kv: (-len(kv[1]["commissions"]), -len(kv[1]["directive"]), -kv[1]["activity"], kv[0]),
+    )[:limit]
+    if not rows:
+        return '<p class="muted">Sin datos de responsabilidades.</p>'
+    body = "".join(
+        f'<tr data-group="{html.escape(p["party"] or "no consta")}">'
+        f'<td><b>{html.escape(name)}</b></td><td>{html.escape(_group_label(p["party"]))}</td>'
+        f'<td>{len(p["commissions"])}</td><td>{len(p["directive"])}</td>'
+        f'<td>{p["activity"] if p["activity"] else "s/d"}</td></tr>'
+        for name, p in rows
+    )
+    return ('<p><label>Filtrar <input type="search" id="resp-filter" placeholder="Nombre o grupo"></label></p>'
+            '<table id="resp-table"><caption>Personas con más comisiones</caption>'
+            '<thead><tr><th>Persona</th><th>Grupo</th><th>Comisiones</th><th>Cargos directivos</th><th>Intervenciones</th></tr></thead>'
+            f'<tbody>{body}</tbody></table>'
+            '<script>(function(){const q=document.getElementById("resp-filter");if(!q)return;'
+            'q.addEventListener("input",()=>{const n=q.value.toLowerCase();'
+            'document.querySelectorAll("#resp-table tbody tr").forEach(r=>{r.hidden=!r.textContent.toLowerCase().includes(n);});});})();</script>')
+
+def _svg_responsibility_activity(people):
+    rows = [p for p in people.values() if p["commissions"] and p["activity"]]
+    rows = sorted(rows, key=lambda p: (-p["activity"], -len(p["commissions"])))[:80]
+    if not rows:
+        return '<p class="muted">Sin actividad atribuible a personas de la composición.</p>'
+    max_c = max(len(p["commissions"]) for p in rows)
+    max_y = max(p["activity"] for p in rows)
+    left, top, width, height = 52, 18, 620, 250
+    parts = [f'<line x1="{left}" y1="{top+height}" x2="{left+width}" y2="{top+height}" stroke="#94a3b8"/>',
+             f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top+height}" stroke="#94a3b8"/>']
+    for tick in (1, max_c):
+        x = left + (tick - 1) / max(1, max_c - 1) * width
+        parts.append(f'<text x="{x}" y="{top+height+16}" font-size="10" text-anchor="middle" fill="#64748b">{tick}</text>')
+    parts.append(f'<text x="{left+width/2}" y="{top+height+34}" font-size="11" text-anchor="middle" fill="#334155">comisiones</text>')
+    for value in (0, max_y // 2, max_y):
+        y = top + height - (value / max_y * height if max_y else 0)
+        parts.append(f'<text x="{left-8}" y="{y+4}" font-size="9" text-anchor="end" fill="#64748b">{value}</text>')
+    parts.append(f'<text x="10" y="{top+height/2}" font-size="11" transform="rotate(-90 10 {top+height/2})" text-anchor="middle" fill="#334155">intervenciones</text>')
+    for p in rows:
+        x = left + ((len(p["commissions"]) - 1) / max(1, max_c - 1)) * width
+        y = top + height - (p["activity"] / max_y * height if max_y else 0)
+        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#0b5"><title>{html.escape(p["party"] or "no consta")} · {len(p["commissions"])} comisiones · {p["activity"]} intervenciones</title></circle>')
+    return ('<p class="muted">Cada punto = persona con coincidencia exacta entre composición e intervenciones. '
+            'No mide asistencia ni calidad; la actividad no se atribuye si el nombre no coincide.</p>'
+            f'<svg viewBox="0 0 {left+width+20} {top+height+48}" width="100%" role="img" aria-label="Responsabilidad frente a actividad">'
+            + "".join(parts) + '</svg>')
 
 def _svg_groups(con):
     """Miembros en comisiones vs intervenciones, por grupo del Congreso."""
@@ -964,6 +1085,10 @@ def build(root=BASE):
         '<img src="matriz.svg" alt="Personas por comisión y rol" loading="lazy" '
         'style="max-width:100%;height:auto">'
     )
+    resp_people = _responsibility_data(con)
+    responsibility_directive = _svg_directive(resp_people)
+    responsibility_table = _responsibility_table(resp_people)
+    responsibility_activity = _svg_responsibility_activity(resp_people)
     group_counts = {}
     for (speaker,) in con.execute(
         "SELECT orador FROM intervenciones WHERE commission_source_id IS NOT NULL AND orador IS NOT NULL"
@@ -1137,6 +1262,15 @@ cargos identificados; el total incluye filas sin diccionario de cargos (la difer
 <p class="muted">Top 40 personas por número de comisiones. Cada celda = cargo en esa comisión; el color indica el rol. <b>Acumular cargos no mide dedicación:</b> para actividad, consulta <a href="personas.html">Personas</a>. Las intervenciones no son asistencia.</p>
 <p class="muted" style="font-size:.85rem">{matrix_legend}</p>
 {matrix_chart}
+<h3>Quién dirige: cargos directivos por grupo</h3>
+<p class="muted">Presidencias, vicepresidencias y secretarías acumuladas en el periodo, no una foto de un día concreto.</p>
+{responsibility_directive}
+<h3>Quién acumula responsabilidades</h3>
+<p class="muted">Personas con más comisiones y cargos directivos. <b>No es un ranking de trabajo</b>: acumular cargos no mide dedicación.</p>
+{responsibility_table}
+<h3>Responsabilidad frente a actividad</h3>
+<p class="muted">Cruza comisiones con intervenciones registradas. Las intervenciones no son asistencia ni calidad del trabajo; solo se atribuyen cuando el nombre coincide exactamente.</p>
+{responsibility_activity}
 </section>
 <p><a href="personas.html">Personas y comisiones</a> · <a href="metodologia.html">Metodología y límites</a></p>
 <script>
