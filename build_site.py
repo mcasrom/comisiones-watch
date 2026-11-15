@@ -1198,8 +1198,9 @@ def build(root=BASE):
     index_body = f"""
 <section id="preguntas">
 <div class="hero">
-<h1>Comisiones del Congreso: actividad y resultados de la XV legislatura</h1>
-<p class="lead">XV legislatura, disuelta el 6 de octubre de 2026. <span class="big">{discovered} órganos identificados · {total_sesiones} fechas de actividad registradas · {total_iniciativas} iniciativas atribuidas · {total_aprobadas} con resultado aprobado</span>.</p>
+<p class="muted"><b>Control parlamentario · XV legislatura</b></p>
+<h1>¿Qué hacen mis representantes en las comisiones?</h1>
+<p class="lead">Quién participa, quién dirige, qué se reúne, qué se aprueba y qué estructuras siguen sin actividad. <span class="muted">XV legislatura, disuelta el 6 de octubre de 2026.</span> <span class="big">{discovered} órganos identificados · {total_sesiones} fechas de actividad registradas · {total_iniciativas} iniciativas atribuidas · {total_aprobadas} con resultado aprobado</span>.</p>
 <div class="chips">
 <span class="chip"><b>{discovered}</b> órganos</span>
 <span class="chip"><b>{total_sesiones}</b> fechas de actividad</span>
@@ -1209,6 +1210,7 @@ def build(root=BASE):
 <div class="ctas">
 <a class="cta primary" href="#" data-goto="comisiones">Explorar comisiones</a>
 <a class="cta" href="personas.html">Buscar persona</a>
+<a class="cta" href="inactividad.html">Ver inactividad</a>
 </div>
 <p class="muted">Fecha de corte: {CUTOFF}. Incluye 23 legislativas, 11 permanentes no legislativas, 8 mixtas (Congreso-Senado) y 8 de investigación.
 Las cifras de iniciativas son registros del inventario, no la tasa de éxito legislativo. El coste no se publica; el recuento de leyes está en depuración (la fuente mezcla leyes, reales decretos-ley, resoluciones y correcciones).</p>
@@ -1700,6 +1702,21 @@ def _write_inactividad(con, web):
     zero = _activity_rows(rows, zero=True, limit=30)
     testimonial = _activity_rows(rows, max_sessions=2, limit=20)
     interrupted = _activity_rows(rows, before="2026-04-12", limit=20)
+    investigations = con.execute(
+        "SELECT c.source_id, c.name, COUNT(DISTINCT i.sesion), COUNT(DISTINCT i.orador),"
+        " MAX(i.sesion), COUNT(DISTINCT CASE WHEN cr.role IN ('presidente','vicepresidente','secretario')"
+        " THEN cr.full_name END)"
+        " FROM commissions c"
+        " LEFT JOIN intervenciones i ON i.commission_source_id = c.source_id"
+        " LEFT JOIN composition_raw cr ON cr.commission_source_id = c.source_id"
+        " WHERE c.kind = 'investigacion' GROUP BY c.source_id ORDER BY c.name"
+    ).fetchall()
+    investigation_html = _inactivity_table([
+        {"code": code, "name": name, "kind": "investigación", "constituted": None,
+         "sessions": int(sessions or 0), "last": last, "people": int(people or 0),
+         "directive": int(directive or 0)}
+        for code, name, sessions, people, last, directive in investigations
+    ])
     budget = next((r for r in rows if r["code"] == "307"), None)
     zero_n = sum(1 for r in rows if r["sessions"] == 0)
     budget_html = ""
@@ -1729,6 +1746,9 @@ def _write_inactividad(con, web):
 <h2>Actividad interrumpida antes de abril de 2026</h2>
 <p class="muted">Última fecha registrada anterior al corte de seis meses. No implica que la comisión estuviera obligada a reunirse.</p>
 {_inactivity_table(interrupted)}
+<h2>Comisiones de investigación: actividad registrada</h2>
+<p class="muted">La fuente no publica dictamen ni conclusiones por comisión. La ausencia de dictamen no se interpreta como ausencia de trabajo.</p>
+{investigation_html}
 {budget_html}
 <div class="card"><h2>Contexto externo: Senado, comisión de investigación sobre RTVE</h2>
 <p>La Cadena SER publicó el 12-oct-2026 que el Senado destinó más de <b>74.000 €</b> a complementos de cargos de una comisión de investigación sobre RTVE constituida el 28-abr que no habría llegado a celebrar comparecencias.</p>
