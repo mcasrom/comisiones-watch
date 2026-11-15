@@ -114,3 +114,7 @@ La página `/inactividad.html` recupera la pregunta fundacional: si una comisió
 - **Cruces:** cargos directivos por grupo, acumulación y dispersión responsabilidad-actividad; no es un ranking de trabajo.
 
 **Coste:** no se calcula. No hay nóminas ni justificantes públicos; una tarifa oficial no prueba un pago. El indicador queda como `no calculable`, no como estimación.
+
+## Caso de origen: Senado / RTVE
+
+Ficha manual en `/caso-senado-rtve.html`. No forma parte de los 8 casos del Congreso: el Senado no ofrece catálogo abierto de composición. Se marca como fuente periodística y no se eleva a dato oficial ni a conclusión propia.

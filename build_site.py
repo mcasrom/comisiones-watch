@@ -966,7 +966,7 @@ registran y se explican.</p>
 
 
 def _write_seo_files(web, codes):
-    urls = [("/", "1.0"), ("/inactividad.html", "0.8"), ("/personas.html", "0.7"), ("/metodologia.html", "0.6"), ("/publicable.html", "0.6")]
+    urls = [("/", "1.0"), ("/inactividad.html", "0.8"), ("/caso-senado-rtve.html", "0.7"), ("/personas.html", "0.7"), ("/metodologia.html", "0.6"), ("/publicable.html", "0.6")]
     urls += [(f"/comision-{code}.html", "0.8") for code in sorted(codes)]
     entries = "".join(
         f"<url><loc>{SITE}{path}</loc><lastmod>{CUTOFF}</lastmod>"
@@ -1311,6 +1311,7 @@ if(tabla){{
 
     _write_personas(con, web)
     _write_inactividad(con, web)
+    _write_caso_senado_rtve(web)
     _write_metodologia(con, web, stats, total_leyes)
     _write_publicable(web)
     _write_seo_files(web, sorted(stats))
@@ -1848,7 +1849,7 @@ def _write_inactividad(con, web):
 <div class="card"><h2>Contexto externo: Senado, comisión de investigación sobre RTVE</h2>
 <p>La Cadena SER publicó el 12-oct-2026 que el Senado destinó más de <b>74.000 €</b> a complementos de cargos de una comisión de investigación sobre RTVE constituida el 28-abr que no habría llegado a celebrar comparecencias.</p>
 <p><b>No se integra en esta base:</b> el Senado no ofrece un catálogo abierto de composición de comisiones (respuesta oficial 15-nov-2026). Es un caso de contexto, no una medición de este observatorio.</p>
-<p><a href="https://cadenaser.com/nacional/2026/10/12/el-senado-destina-mas-de-74000-euros-en-salarios-a-una-comision-de-investigacion-abierta-por-el-pp-que-no-ha-llegado-a-trabajar-cadena-ser/">Fuente: Cadena SER, 12-oct-2026</a></p></div>
+<p><a href="caso-senado-rtve.html">Ficha externa completa →</a> · <a href="https://cadenaser.com/nacional/2026/10/12/el-senado-destina-mas-de-74000-euros-en-salarios-a-una-comision-de-investigacion-abierta-por-el-pp-que-no-ha-llegado-a-trabajar-cadena-ser/">Fuente: Cadena SER, 12-oct-2026</a></p></div>
 <h2>Marco y cautelas</h2>
 <ul>
 <li><b>Constitución, actividad y coste son tres cosas distintas.</b> Una comisión puede constituirse y no reunirse por decisión política, por falta de objeto o por un hueco de la fuente.</li>
@@ -1863,6 +1864,47 @@ def _write_inactividad(con, web):
         "Comisiones: actividad, inactividad y coste público", body,
         "Comisiones constituidas sin actividad registrada, actividad interrumpida y límites para calcular el coste público de los cargos.",
         url="/inactividad.html", breadcrumbs=[("Inicio", "/"), ("Inactividad", "/inactividad.html")]), encoding="utf-8")
+
+def _write_caso_senado_rtve(web):
+    body = """<p><a href="inactividad.html">← Inactividad</a> · <a href="index.html">Inicio</a></p>
+<h1>Caso Senado · comisión de investigación sobre RTVE</h1>
+<p class="lead"><b>Caso de origen de esta línea de trabajo.</b> No está en la tabla de 8 comisiones porque el Senado no ofrece un catálogo abierto de composición de comisiones.</p>
+<div class="kpis">
+<div class="kpi"><div><strong>Fuente</strong><b>periodística</b><span class="muted">no es una medición de este observatorio</span></div></div>
+<div class="kpi"><div><strong>Coste acreditado</strong><b>no consta</b><span class="muted">la cifra publicada no se ha verificado aquí</span></div></div>
+<div class="kpi"><div><strong>Datos del Senado</strong><b>no ingeridos</b><span class="muted">sin catálogo abierto de composición</span></div></div>
+</div>
+<h2>Qué publicó la prensa</h2>
+<p>La Cadena SER publicó el <b>12-oct-2026</b> que el Senado habría destinado más de <b>74.000 €</b> a complementos de cargos de una comisión de investigación sobre RTVE constituida el <b>28-abr-2026</b>, que no habría llegado a celebrar comparecencias ni a iniciar sus trabajos.</p>
+<p><span class="chip">Fuente periodística</span> Esta ficha reproduce el hecho publicado, no lo eleva a dato oficial ni a conclusión propia.</p>
+<h2>Por qué no está en la tabla</h2>
+<ul>
+<li>La base del observatorio cubre <b>composición y actividad del Congreso</b>; no del Senado.</li>
+<li>El Senado confirmó el <b>15-nov-2026</b> que no dispone de un catálogo abierto de composición de comisiones ni de una vía de descarga masiva autorizada.</li>
+<li>Por eso el caso queda como <b>ficha manual externa</b>, separada de los 8 casos del Congreso.</li>
+</ul>
+<h2>Qué se puede afirmar y qué no</h2>
+<ul>
+<li><b>Se puede afirmar:</b> que existe una información periodística con esas fechas y esa cifra.</li>
+<li><b>No se puede afirmar</b> con esta base: que los pagos sean indebidos, que no hubiera trabajo interno, ni que exista fraude.</li>
+<li><b>Falta:</b> composición oficial, acuerdos de constitución, convocatorias, actas y justificantes de percepción.</li>
+</ul>
+<h2>Qué haría falta para convertirla en dato</h2>
+<ol>
+<li>Composición y cargos oficiales del Senado.</li>
+<li>Convocatorias, actas o Diario de Sesiones.</li>
+<li>Percepciones acreditadas o dato agregado oficial.</li>
+<li>Respuesta del Senado a una solicitud de información.</li>
+</ol>
+<p><a href="https://cadenaser.com/nacional/2026/10/12/el-senado-destina-mas-de-74000-euros-en-salarios-a-una-comision-de-investigacion-abierta-por-el-pp-que-no-ha-llegado-a-trabajar-cadena-ser/">Fuente: Cadena SER, 12-oct-2026</a></p>
+<p class="muted">No se atribuye intención, fraude ni responsabilidad política.</p>
+"""
+    (web / "caso-senado-rtve.html").write_text(
+        _page("Caso Senado · comisión de investigación sobre RTVE", body,
+              "Ficha manual del caso periodístico de la comisión de investigación del Senado sobre RTVE; no integrada en la base del Congreso.",
+              url="/caso-senado-rtve.html",
+              breadcrumbs=[("Inicio", "/"), ("Inactividad", "/inactividad.html"), ("Caso Senado/RTVE", "/caso-senado-rtve.html")]),
+        encoding="utf-8")
 
 def _write_metodologia(con, web, stats, total_leyes):
     rates = con.execute(
