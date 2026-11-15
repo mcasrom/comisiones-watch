@@ -112,3 +112,5 @@ La página `/inactividad.html` recupera la pregunta fundacional: si una comisió
 - **Inactividad:** comisiones sin actividad registrada, actividad testimonial e interrumpida; coste acreditado `s/d`.
 - **Investigación:** actividad y cargos de las comisiones de investigación; sin dictamen ni conclusiones en la fuente.
 - **Cruces:** cargos directivos por grupo, acumulación y dispersión responsabilidad-actividad; no es un ranking de trabajo.
+
+**Coste:** no se calcula. No hay nóminas ni justificantes públicos; una tarifa oficial no prueba un pago. El indicador queda como `no calculable`, no como estimación.

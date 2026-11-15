@@ -36,3 +36,7 @@ No se pueden confundir. Una comisión sin reuniones no es automáticamente irreg
 ## Comisiones de investigación
 
 La página muestra fechas de actividad, personas y cargos directivos registrados. No publica dictamen, conclusiones ni recomendaciones porque el opendata no los atribuye por comisión. La ausencia de dictamen no se interpreta como ausencia de trabajo.
+
+## Nóminas y coste
+
+No hay nóminas ni justificantes de percepción públicos. Por eso el observatorio **no publica una cifra de coste**: una tarifa oficial no prueba un pago concreto y multiplicar tarifas por meses sería una estimación, no un coste acreditado.

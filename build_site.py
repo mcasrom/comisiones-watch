@@ -1689,7 +1689,7 @@ def _inactivity_table(rows):
         f"<td>{html.escape(_fmt_date(r['constituted']))}</td>"
         f"<td>{r['people']}</td><td>{r['directive']}</td>"
         f"<td>{r['sessions']}</td><td>{html.escape(_fmt_date(r['last']))}</td>"
-        "<td><b>s/d</b></td></tr>"
+        "<td><b>no consta</b></td></tr>"
         for r in rows
     )
     return ("<div class=table-scroll><table><caption>Comisiones y actividad registrada</caption>"
@@ -1723,7 +1723,7 @@ def _write_inactividad(con, web):
     if budget:
         budget_html = f'''<div class="card"><h2>Caso documentado: Comisión de Presupuestos</h2>
 <p><b>1 fecha de actividad</b> registrada ({html.escape(_fmt_date(budget['last']))}), <b>{budget['people']} personas</b> con cargo o adscripción y <b>{budget['directive']} cargos directivos</b> en la composición cargada.</p>
-<p>No se deduce de estos datos que exista una percepción indebida: solo que la actividad registrada es mínima. El coste acreditado no se publica.</p>
+<p>No se deduce de estos datos que exista una percepción indebida: solo que la actividad registrada es mínima. El coste acreditado no es calculable con fuentes públicas.</p>
 <p><a href="https://www.sueldospublicos.com/texto-diario/mostrar/5793894/hasta-18-diputados-comision-presupuestos-siguen-cobrando-plus-834-1712-euros-brutos-mes-pese-llevar-anos-reunirse">Contexto externo: Sueldos Públicos</a></p></div>'''
     body = f"""<p><a href="index.html">Volver</a></p>
 <h1>Comisiones: actividad, inactividad y coste público</h1>
@@ -1731,13 +1731,14 @@ def _write_inactividad(con, web):
 <p>Este observatorio solo puede responder con datos públicos y verificables. Distingue <b>constitución formal</b>, <b>funcionamiento efectivo</b> y <b>consecuencia económica</b>; no las confunde ni las presenta como prueba de irregularidad.</p>
 <div class="kpis">
 <div class="kpi"><div><strong>Comisiones sin actividad registrada</strong><b>{zero_n}</b><span class="muted">de {len(rows)}; puede haber datos incompletos</span></div></div>
-<div class="kpi"><div><strong>Coste acreditado</strong><b>s/d</b><span class="muted">requiere nóminas o pagos oficiales</span></div></div>
+<div class="kpi"><div><strong>Coste acreditado</strong><b>no calculable</b><span class="muted">no hay nóminas ni justificantes públicos</span></div></div>
 <div class="kpi"><div><strong>Tarifas de referencia</strong><b>no aplicadas</b><span class="muted">no se multiplican por meses</span></div></div>
 </div>
 <section class="card"><h2>Qué se puede afirmar y qué no</h2>
 <ul><li><b>Se puede afirmar:</b> hay comisiones con cero fechas de actividad en el volcado de intervenciones y cargos en la composición.</li>
 <li><b>No se puede afirmar:</b> que hayan cobrado complementos sin actividad, que exista fraude o que la constitución fuera irregular.</li>
-<li><b>Falta:</b> nóminas, justificantes de percepción, acuerdos de constitución y explicación de la Cámara.</li></ul></section>
+<li><b>Falta:</b> nóminas, justificantes de percepción, acuerdos de constitución y explicación de la Cámara.</li></ul>
+<p><b>No hay nóminas ni justificantes públicos.</b> Por eso no se publica una cifra de coste: una tarifa oficial no prueba un pago concreto y multiplicar tarifas por meses sería una estimación, no un coste acreditado.</p></section>
 <h2>Constituidas sin actividad registrada</h2>
 <p class="muted">Cero fechas en el volcado de intervenciones. Puede ser un hueco de la fuente, no una prueba de que no se reunieran.</p>
 {_inactivity_table(zero)}
