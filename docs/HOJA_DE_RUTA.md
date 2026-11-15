@@ -1,7 +1,7 @@
 # Hoja de ruta — cómo seguir (12-oct-2026)
 
 Estado: **desplegado** en <https://comisiones.pruebapublica.com>. 50 órganos,
-864 sesiones, 225 iniciativas y 3.489 registros de composición; corte 2026-10-12.
+860 fechas de actividad, 225 iniciativas y 3.489 registros de composición; corte 2026-10-12.
 Tests **32/32**. La atribución ambigua ya no asigna `min(ties)`: queda
 **sin atribuir** (43 intervenciones). Senado, PNL, comparecencias solicitadas y
 coste siguen pendientes de fuente/validación.

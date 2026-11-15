@@ -25,7 +25,7 @@ class SiteTest(unittest.TestCase):
                 self.assertIn('href="#contenido"', html)
         index = self.pages["index.html"]
         self.assertIn("Con composición", index)
-        self.assertIn("Sesiones por comisión", index)
+        self.assertIn("Fechas de actividad por comisión", index)
         self.assertIn("no se estima", index)
         ficha = self.pages["comision-301.html"]
         for section in ("Reuniones", "Actividad", "Resultados", "Coste", "Composición oficial"):

@@ -5,7 +5,7 @@ real frente a coste estimado** de sus cargos. Datos públicos verificables,
 mismo rasero para todas las comisiones y todos los grupos.
 
 > **Estado: desplegado** en <https://comisiones.pruebapublica.com>.
-> 50 órganos del Congreso, 864 sesiones, 225 iniciativas y 3.489 registros
+> 50 órganos del Congreso, 860 fechas de actividad, 225 iniciativas y 3.489 registros
 > de composición. Las coincidencias ambiguas **no se atribuyen**: quedan como
 > «sin atribuir» (43 intervenciones de las comisiones de investigación solapadas).
 > Datos congelados en la XV legislatura, corte **2026-10-12**. El Senado confirmó el 15-nov-2026 que no tiene un catálogo abierto de composición de comisiones ni una vía de descarga masiva autorizada; por eso la composición es solo del Congreso. PNL,
@@ -73,7 +73,7 @@ fallo en el manifiesto en vez de insistir.
 - `/data/personas.json` — personas, grupos y comisiones; `personas.html` es una
   página ligera (**~10 KB**) que busca y pagina en cliente sobre ese JSON.
 - Actividad baja calculada con **mediana de pares**; las coincidencias ambiguas
-  quedan **sin atribuir** y no suman sesiones a ninguna comisión.
+  quedan **sin atribuir** y no suman fechas de actividad a ninguna comisión.
 - Senado, PNL, comparecencias solicitadas, subcomisiones y coste siguen fuera:
   no hay fuente suficiente y no se estiman. En el Senado, la limitación es de origen: no hay catálogo abierto de composición de comisiones ni autorización de acceso masivo (respuesta oficial 15-nov-2026).
 

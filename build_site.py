@@ -479,7 +479,7 @@ def _svg_sessions(rows, limit=15):
         parts.append(f'<text x="{left + bar_w + 6}" y="{y + 15}" font-size="12" font-weight="bold" fill="#0f172a">{value}</text>')
     return (
         f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
-        f'aria-label="Sesiones por comisión (top {len(rows)})">' + "".join(parts) + "</svg>"
+        f'aria-label="Fechas de actividad por comisión (top {len(rows)})">' + "".join(parts) + "</svg>"
     )
 
 
@@ -556,7 +556,7 @@ def _svg_calendar(con):
                 fill = 'fill="#eef2f3"'
             parts.append(f'<rect x="{left + col * cw}" y="{y}" width="{cw - 2}" height="{ch - 2}" {fill}/>')
     legend_y = top + rows * ch + 22
-    parts.append(f'<text x="0" y="{legend_y + 12}" font-size="11" fill="#334155">Sesiones por mes:</text>')
+    parts.append(f'<text x="0" y="{legend_y + 12}" font-size="11" fill="#334155">Fechas de actividad por mes:</text>')
     legend_x = 130
     for n in range(5):
         if n == 0:
@@ -575,7 +575,7 @@ def _svg_calendar(con):
         legend_x += 38
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
-        f'width="{width}" height="{height}" role="img" aria-label="Sesiones por comisión y mes">'
+        f'width="{width}" height="{height}" role="img" aria-label="Fechas de actividad por comisión y mes">'
         + "".join(parts) + "</svg>"
     )
 
@@ -731,7 +731,7 @@ def _write_og(web, discovered, sessions, approved):
     draw.rectangle([0, 0, width, 10], fill="#0b5")
     draw.text((70, 110), "Comisiones del Congreso", font=serif, fill="#ffffff")
     draw.text((70, 190), "XV legislatura · datos abiertos", font=sans, fill="#94a3b8")
-    draw.text((70, 290), f"{discovered} comisiones · {sessions} sesiones", font=bold, fill="#ffffff")
+    draw.text((70, 290), f"{discovered} comisiones · {sessions} fechas de actividad", font=bold, fill="#ffffff")
     draw.text((70, 350), f"{approved} iniciativas aprobadas", font=bold, fill="#0b5")
     draw.text((70, 460), "Actividad, comparecencias, personas y resultados", font=sans, fill="#cbd5e1")
     draw.text((70, 540), "comisiones.pruebapublica.com", font=sans, fill="#94a3b8")
@@ -949,7 +949,7 @@ def build(root=BASE):
     groups_chart = _svg_groups(con)
     (web / "calendario.svg").write_text(_svg_calendar(con), encoding="utf-8")
     calendar_chart = (
-        '<img src="calendario.svg" alt="Sesiones por comisión y mes" loading="lazy" '
+        '<img src="calendario.svg" alt="Fechas de actividad por comisión y mes" loading="lazy" '
         'style="max-width:100%;height:auto">'
     )
     approved_chart = _svg_approved(
@@ -1004,7 +1004,7 @@ def build(root=BASE):
         ),
         (
             "¿Qué comisiones no se reunieron?",
-            f"<b>{len(no_sessions)}</b> sin sesiones en el opendata (posible dato incompleto en algunas): {no_sessions_html}.",
+            f"<b>{len(no_sessions)}</b> sin fechas de actividad en el opendata (posible dato incompleto en algunas): {no_sessions_html}.",
             f"{len(no_sessions)} comisiones sin sesiones en el opendata (posible dato incompleto en algunas).",
             ("goto", "comisiones"),
             "Ver comisiones",
@@ -1035,8 +1035,8 @@ def build(root=BASE):
         ),
         (
             "¿Cuánto trabajo hay en total?",
-            f"<b>{total_sesiones}</b> sesiones, <b>{total_iniciativas}</b> iniciativas y <b>{total_aprobadas}</b> aprobadas con comisión atribuida.",
-            f"{total_sesiones} sesiones, {total_iniciativas} iniciativas y {total_aprobadas} aprobadas.",
+            f"<b>{total_sesiones}</b> fechas de actividad, <b>{total_iniciativas}</b> iniciativas y <b>{total_aprobadas}</b> aprobadas con comisión atribuida.",
+            f"{total_sesiones} fechas de actividad, {total_iniciativas} iniciativas y {total_aprobadas} aprobadas.",
             ("goto", "resumen"),
             "Ver gráficos",
         ),
@@ -1072,10 +1072,10 @@ def build(root=BASE):
 <section id="preguntas">
 <div class="hero">
 <h1>Comisiones del Congreso: actividad y resultados de la XV legislatura</h1>
-<p class="lead">XV legislatura, disuelta el 6 de octubre de 2026. <span class="big">{discovered} órganos identificados · {total_sesiones} fechas de reunión registradas · {total_iniciativas} iniciativas atribuidas · {total_aprobadas} con resultado aprobado</span>.</p>
+<p class="lead">XV legislatura, disuelta el 6 de octubre de 2026. <span class="big">{discovered} órganos identificados · {total_sesiones} fechas de actividad registradas · {total_iniciativas} iniciativas atribuidas · {total_aprobadas} con resultado aprobado</span>.</p>
 <div class="chips">
 <span class="chip"><b>{discovered}</b> órganos</span>
-<span class="chip"><b>{total_sesiones}</b> fechas de reunión</span>
+<span class="chip"><b>{total_sesiones}</b> fechas de actividad</span>
 <span class="chip"><b>{total_iniciativas}</b> iniciativas atribuidas</span>
 <span class="chip"><b>{total_aprobadas}</b> aprobadas</span>
 </div>
@@ -1099,21 +1099,21 @@ Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
 <div class=kpis>
 {_kpi("Órganos", discovered)}
 {_kpi("Con composición", len(with_composition), f"{composition_rows} registros")}
-{_kpi("Fechas de reunión (XV)", total_sesiones)}
+{_kpi("Fechas de actividad (XV)", total_sesiones)}
 {_kpi("Iniciativas atribuidas (XV)", total_iniciativas, "por comisión competente")}
 {_unavailable("Leyes aprobadas", "en depuración · la fuente mezcla tipos")}
 </div>
-<p class="muted">Las sesiones se cuentan por fechas distintas de reunión del órgano en el
+<p class="muted">Las fechas de actividad se cuentan por fechas distintas de reunión del órgano en el
 volcado de intervenciones ({total_intervenciones:,} intervenciones cargadas); pueden no coincidir con el
-recuento oficial de sesiones. Las iniciativas son las que tienen cada comisión como competente
-(27/225 no es la tasa de éxito legislativo). El coste no se publica. El recuento de leyes no se
+recuento administrativo de sesiones. Las iniciativas son las que tienen cada comisión como competente
+(29/225 no es la tasa de éxito legislativo). El coste no se publica. El recuento de leyes no se
 publica: el volcado mezcla leyes, reales decretos-ley, resoluciones y correcciones de errores.</p>
 {DATA_LEGEND}
-<h2>Sesiones por comisión <span class=chip>🔵 derivado</span></h2>
+<h2>Fechas de actividad por comisión <span class=chip>🔵 derivado</span></h2>
 <p class="muted">Top 15 por número de fechas de reunión. La lista completa, en la pestaña «Comisiones».</p>
 {chart}
 <h2>Calendario de actividad <span class=chip>🔵 derivado</span></h2>
-<p class="muted">Cada celda = sesiones distintas de esa comisión en ese mes. Se ve cuándo dejó de reunirse cada una.</p>
+<p class="muted">Cada celda = fechas de actividad distintas de esa comisión en ese mes. Se ve cuándo dejó de reunirse cada una.</p>
 {calendar_chart}
 <h2>Grupos: miembros en comisiones vs intervenciones <span class=chip>🔵 derivado</span></h2>
 <p class="muted">«Miembros» = personas distintas con cargo en comisiones (proxy, no escaños de la Cámara). «Intervenciones» = participación, no asistencia.</p>
@@ -1126,15 +1126,15 @@ publica: el volcado mezcla leyes, reales decretos-ley, resoluciones y correccion
 <h2>Comisiones</h2>
 <p><label>Filtrar listado <input type=search data-filter placeholder="Escribe cámara, tipo o nombre"></label> <span class="muted">· Haz clic en una cabecera para ordenar.</span></p>
 <table id="comisiones-tabla"><caption>Comisiones del Congreso</caption>
-<thead><tr><th data-sort="0">Cámara</th><th data-sort="1">Tipo</th><th data-sort="2">Nombre</th><th data-sort="3">Código</th><th data-sort="4">Comp. normalizada</th><th data-sort="5">Sesiones</th><th data-sort="6">Iniciativas</th><th>Enlaces</th></tr></thead>
+<thead><tr><th data-sort="0">Cámara</th><th data-sort="1">Tipo</th><th data-sort="2">Nombre</th><th data-sort="3">Código</th><th data-sort="4">Comp. normalizada</th><th data-sort="5">Fechas</th><th data-sort="6">Iniciativas</th><th>Enlaces</th></tr></thead>
 <tbody>{table}</tbody></table>
-<p class="muted">⚠ «0 sesiones» = sin registro en el opendata (posible dato incompleto; no implica que no se reuniera).
+<p class="muted">⚠ «0 fechas» = sin registro en el opendata (posible dato incompleto; no implica que no se reuniera).
 «0 iniciativas» = ninguna atribuida a la comisión como competente. «Comp. normalizada» cuenta
 cargos identificados; el total incluye filas sin diccionario de cargos (la diferencia no es un error de recuento).</p>
 </section>
 <section id="cruces" hidden>
 <h2>Cruces: personas × comisiones <span class=chip>🔵 derivado</span></h2>
-<p class="muted">Top 40 personas por número de comisiones. Cada celda = cargo en esa comisión; el color indica el rol.</p>
+<p class="muted">Top 40 personas por número de comisiones. Cada celda = cargo en esa comisión; el color indica el rol. <b>Acumular cargos no mide dedicación:</b> para actividad, consulta <a href="personas.html">Personas</a>. Las intervenciones no son asistencia.</p>
 <p class="muted" style="font-size:.85rem">{matrix_legend}</p>
 {matrix_chart}
 </section>
