@@ -1742,6 +1742,45 @@ def _svg_inactivity_map(rows):
               '<span><i style="background:#fff;border:2px solid #b91c1c"></i>sin fechas</span></div>')
     return (legend + f'<svg viewBox="0 0 {left+width+20} {top+height+42}" width="100%" role="img" aria-label="Personas con cargo y fechas de actividad por comisión">' + "".join(parts) + '</svg>')
 
+def _svg_solo_creacion(rows):
+    selected = [r for r in rows if r["sessions"] == 0 and r["constituted"]]
+    if not selected:
+        return '<p class="muted">Sin comisiones con fecha de alta y cero fechas.</p>'
+    start = min(r["constituted"] for r in selected)
+    from datetime import date
+    d0 = date.fromisoformat(start)
+    d1 = date.fromisoformat(CUTOFF)
+    span = max(1, (d1 - d0).days)
+    left, top, width, row_h = 210, 18, 500, 24
+    height = top + len(selected) * row_h + 42
+    parts = [f'<line x1="{left}" y1="{top+len(selected)*row_h}" x2="{left+width}" y2="{top+len(selected)*row_h}" stroke="#94a3b8"/>']
+    for r in sorted(selected, key=lambda x: x["constituted"]):
+        d = date.fromisoformat(r["constituted"])
+        x = left + (d - d0).days / span * width
+        y = top + sorted(selected, key=lambda q: q["constituted"]).index(r) * row_h
+        parts.append(f'<text x="0" y="{y+13}" font-size="9" fill="#334155">{html.escape(r["name"][:46])}</text>')
+        parts.append(f'<line x1="{x:.1f}" y1="{y+7}" x2="{left+width}" y2="{y+7}" stroke="#cbd5e1" stroke-width="4"/>')
+        parts.append(f'<circle cx="{x:.1f}" cy="{y+7}" r="4" fill="#b91c1c"><title>{html.escape(r["name"])} · primer alta {r["constituted"]} · 0 fechas</title></circle>')
+        parts.append(f'<text x="{left+width+6}" y="{y+11}" font-size="9" fill="#b91c1c">0 fechas</text>')
+    parts.append(f'<text x="{left}" y="{height-6}" font-size="9" fill="#64748b">{html.escape(start)}</text>')
+    parts.append(f'<text x="{left+width}" y="{height-6}" font-size="9" fill="#64748b" text-anchor="end">{html.escape(CUTOFF)}</text>')
+    return ('<div class="legend"><span><i style="background:#b91c1c"></i>primer alta</span>'
+            '<span><i style="background:#cbd5e1"></i>tramo sin fechas registradas</span></div>'
+            f'<svg viewBox="0 0 {left+width+70} {height}" width="100%" role="img" aria-label="Comisiones con solo creación y cero fechas">'
+            + "".join(parts) + '</svg>')
+
+def _solo_creacion_table(rows):
+    body = "".join(
+        f'<tr><td>{html.escape(r["code"])}</td><td>{html.escape(r["name"])}</td>'
+        f'<td>{html.escape(r["kind"])}</td><td>{html.escape(_fmt_date(r["constituted"]))}</td>'
+        f'<td>{r["people"]}</td><td>{r["directive"]}</td><td>{r["sessions"]}</td></tr>'
+        for r in rows
+    )
+    return ('<div class="table-scroll"><table><caption>Solo creación: composición y cero fechas</caption>'
+            '<thead><tr><th>Código</th><th>Comisión</th><th>Tipo</th><th>Primer alta</th>'
+            '<th>Personas</th><th>Directivos</th><th>Fechas</th></tr></thead><tbody>'
+            + body + '</tbody></table></div>')
+
 def _write_inactividad(con, web):
     rows = _inactivity_data(con)
     zero = _activity_rows(rows, zero=True, limit=30)
@@ -1765,6 +1804,8 @@ def _write_inactividad(con, web):
         for code, name, sessions, people, last, directive, iniciativas in investigations
     ])
     activity_map = _svg_inactivity_map(rows)
+    creation_timeline = _svg_solo_creacion(zero)
+    solo_table = _solo_creacion_table(zero)
     budget = next((r for r in rows if r["code"] == "307"), None)
     zero_n = sum(1 for r in rows if r["sessions"] == 0)
     budget_html = ""
@@ -1790,9 +1831,10 @@ def _write_inactividad(con, web):
 <h2>Mapa de actividad registrada</h2>
 <p class="muted">Cada punto es una comisión: a la derecha, más personas con cargo; abajo, menos fechas. La línea roja marca las que tienen cero fechas y cargos. <b>No implica irregularidad:</b> puede haber un hueco de la fuente.</p>
 {activity_map}
-<h2>Constituidas sin actividad registrada</h2>
-<p class="muted">Cero fechas en el volcado de intervenciones. Puede ser un hueco de la fuente, no una prueba de que no se reunieran.</p>
-{_inactivity_table(zero)}
+<h2>Solo creación: constituidas sin actividad registrada</h2>
+<p class="muted">La línea empieza en el <b>primer alta</b> y llega al corte sin fechas registradas. No es la fecha oficial de constitución ni prueba de que no se reunieran: puede faltar la transcripción.</p>
+{creation_timeline}
+{solo_table}
 <p class="muted"><b>362, 363 y 364</b> son propuestas solapadas sobre el mismo apagón; no se suman como tres bloqueos independientes. Las comisiones pueden no haber generado intervenciones transcritas: la XV se disolvió el 6-oct-2026. La causa concreta no consta en la fuente.</p>
 <h2>Actividad testimonial (1–2 fechas)</h2>
 {_inactivity_table(testimonial)}
