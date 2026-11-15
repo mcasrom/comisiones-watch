@@ -106,3 +106,9 @@ Advertencia: acumular cargos no mide dedicación; las intervenciones no son asis
 ## Actividad, inactividad y coste público
 
 La página `/inactividad.html` recupera la pregunta fundacional: si una comisión puede mantener cargos y complementos sin actividad efectiva. Distingue constitución formal, funcionamiento y percepción económica; no calcula costes con tarifas teóricas y no atribuye fraude. Incluye comisiones sin actividad registrada, actividad testimonial, actividad interrumpida y dos casos de contexto (Presupuestos y Senado/RTVE).
+
+## Inactividad e investigación
+
+- **Inactividad:** comisiones sin actividad registrada, actividad testimonial e interrumpida; coste acreditado `s/d`.
+- **Investigación:** actividad y cargos de las comisiones de investigación; sin dictamen ni conclusiones en la fuente.
+- **Cruces:** cargos directivos por grupo, acumulación y dispersión responsabilidad-actividad; no es un ranking de trabajo.

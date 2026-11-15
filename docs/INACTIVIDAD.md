@@ -32,3 +32,7 @@ No se pueden confundir. Una comisión sin reuniones no es automáticamente irreg
 - Constitución, art. 71.4.
 - Reglamento del Congreso, arts. 50 y 51.
 - Régimen económico del Congreso.
+
+## Comisiones de investigación
+
+La página muestra fechas de actividad, personas y cargos directivos registrados. No publica dictamen, conclusiones ni recomendaciones porque el opendata no los atribuye por comisión. La ausencia de dictamen no se interpreta como ausencia de trabajo.
