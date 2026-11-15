@@ -8,7 +8,7 @@ Estado: **Fase 0 cerrada con GO reducido; fases 1–3 pendientes**. Alcance máx
   `resourceIDOrganos` con `_opendata_tipoConsulta=3` y `_opendata_legislatura=15`.
   La misma petición devolvió después `500` de borde Akamai y luego `503`; `robots.txt` tampoco fue accesible.
   Conclusión: **endpoint identificado, pero no estabilidad suficiente para prometer automatismo semanal**.
-- Senado: XML `ficopendataservlet?tipoFich=7&legis=15` y `robots.txt` devuelven `403` Akamai desde portátil y server. No hay alternativa abierta equivalente; queda como esqueleto + semilla manual.
+- Senado: sin catálogo abierto de composición de comisiones y sin autorización de descarga masiva (respuesta oficial del 15-nov-2026). Queda como esqueleto + semilla manual.
 - Tarifas 2026 verificadas en las páginas oficiales de transparencia: Congreso, presidente de comisión `1.712,50 €`; Senado, presidente `1.738,36 €`, con reglas explícitas de incompatibilidad/compatibilidad.
 - **Corte aplicado: `GO reducido`**. Continuar solo con Congreso en modo lectura, reintentos y caché; no declarar la ingesta autónoma hasta reproducir tres ejecuciones limpias.
 

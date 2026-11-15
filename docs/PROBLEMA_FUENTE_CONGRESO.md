@@ -16,7 +16,7 @@ Fecha: 2026-10-12. Estado: vía automática **aparcada** con fallo visible.
 - El recurso AJAX `searchOrgano` es intermitente: un `POST` idéntico devolvió
   `500` de borde, después JSON válido una vez, después HTML `200` en las 50
   comisiones, y finalmente **`503` hasta en la página** tras varias series.
-- El Senado está peor: XML y `robots.txt` devuelven `403` Akamai siempre.
+- El Senado no ofrece un conjunto descargable de composición de comisiones; su Departamento de Información lo confirmó el 15-nov-2026.
 - Patrón típico de **límite por IP tras volumen**: cada serie de reintentos
   empeoró la respuesta. No es un bug nuestro subsanable con más reintentos.
 

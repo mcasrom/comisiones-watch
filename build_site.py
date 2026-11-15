@@ -789,7 +789,7 @@ los reglamentos y la protección de datos.</p>
 <ul>
 <li><strong>Composición</strong>: CSV oficial de composición de las comisiones del Congreso (XV legislatura).</li>
 <li><strong>Actividad e iniciativas</strong>: opendata del Congreso de los Diputados (intervenciones e iniciativas).</li>
-<li><strong>Senado</strong>: acceso automatizado bloqueado; no se ingiere (⚪ no consta).</li>
+<li><strong>Senado</strong>: no dispone de catálogo abierto de composición de comisiones ni de exportación masiva autorizada (respuesta oficial del Senado, 15-nov-2026); no se ingiere (⚪ no consta).</li>
 <li><strong>Coste</strong>: tarifas oficiales pendientes de validación; no se publica (🔴).</li>
 </ul>
 <p>Fecha de corte: <strong>{html.escape(CUTOFF)}</strong>. La XV legislatura está disuelta (6-oct-2026),
@@ -806,7 +806,7 @@ así que los datos son un estado congelado, no una foto en tiempo real.</p>
 <ul>
 <li><strong>Datos personales ajenos al cargo</strong> (contacto, vida privada, opiniones): fuera del interés público y del principio de minimización.</li>
 <li><strong>Coste y complementos</strong>: no se publica mientras las tarifas estén en validación.</li>
-<li><strong>Senado</strong>: acceso bloqueado; no se estima ni se rellena con terceros.</li>
+<li><strong>Senado</strong>: sin fuente abierta de composición; no se estima ni se rellena con terceros.</li>
 <li><strong>Comisiones reservadas</strong> (por ejemplo, gastos reservados, 151): su actividad no se publica por su naturaleza.</li>
 <li><strong>Etiquetas internas</strong> de normalización: no se muestran; solo el resultado.</li>
 </ul>
@@ -1392,7 +1392,7 @@ Oradores distintos: <b>{speakers}</b>. «Participa» aquí significa <b>interven
 <li><b>Coste</b>: 🔴 no se publica mientras las tarifas estén en validación.</li>
 <li><b>Comparecencias</b>: ⚪ el opendata no siempre identifica la fase; se cuenta la sesión como reunión y solo se marca cuando la fuente lo dice.</li>
 <li><b>Leyes aprobadas por comisión</b>: ⚪ la fuente no atribuye las leyes a una comisión.</li>
-<li><b>Senado</b>: ⚪ acceso automatizado bloqueado; su composición no se ingiere. Las siglas SG… son grupos del Senado.</li>
+<li><b>Senado</b>: ⚪ sin catálogo abierto de composición; no se ingiere. Las siglas SG… son grupos del Senado.</li>
 <li><b>Bajas</b>: la fecha de baja igual a la disolución ({html.escape(DISSOLUTION)}) indica el fin de legislatura, no una baja individual.</li>
 </ul>
 </details>
@@ -1572,7 +1572,7 @@ atribuye a ciegas.</p>
 <tbody>{rate_rows}</tbody></table>
 <h2>Limitaciones conocidas</h2>
 <ul>
-<li>Senado con acceso automatizado bloqueado; sus tarifas no se han podido descargar.</li>
+<li>Senado sin vía de descarga masiva autorizada; sus tarifas no se han podido verificar.</li>
 <li>Una «reunión» cuenta por fecha; no distingue sesión ordinaria de extraordinaria.</li>
 <li>Las leyes no se reparten por comisión en la fuente y el volcado mezcla tipos; no se publica un recuento.</li>
 <li>Comisiones de investigación solapadas (suministro eléctrico del 28-abr-2025) pueden

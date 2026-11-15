@@ -40,7 +40,7 @@ qué cambió entre cortes).
 
 - Congreso: aparcada tras limitar la IP (`503`). Goteo preparado
   (`--limit 8 --sleep 25`, de madrugada); reintentar en otra sesión fuera de pico.
-- Senado: bloqueado (`403` general, medido también desde casa). Vía principal:
+- Senado: sin catálogo abierto de composición; respuesta oficial del 15-nov-2026. Vía principal:
   carta enviada el 12-oct (`informacion@senado.es`, plazo 5 días–1 mes).
 - Carga manual por CSV mientras tanto (este flujo).
 

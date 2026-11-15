@@ -53,7 +53,7 @@ El propio repo público es la fuente de verdad. Los ficheros iniciales
 ## Bloqueo de la fuente (resumen)
 
 - Congreso: recurso `searchOrgano` intermitente (500/503/HTML); los reintentos
-  agotan el límite por IP. Senado: `403` Akamai sistemático. Detalle en
+  agotan el límite por IP. Senado: sin catálogo abierto de composición; respuesta oficial 15-nov-2026. Detalle en
   `docs/PROBLEMA_FUENTE_CONGRESO.md`. Vía automática **aparcada**; **plan B = vía
   manual CSV** (sigue funcionando desde el navegador).
 - Carta de reutilización enviada al Senado (12-oct, Resend, `delivered`); borrador

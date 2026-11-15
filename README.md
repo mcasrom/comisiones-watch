@@ -1,6 +1,6 @@
 # comisiones-watch
 
-Vigilancia ciudadana de las comisiones del Congreso y del Senado: **actividad
+Vigilancia ciudadana de las comisiones del Congreso (el Senado no ofrece datos abiertos de composición): **actividad
 real frente a coste estimado** de sus cargos. Datos públicos verificables,
 mismo rasero para todas las comisiones y todos los grupos.
 
@@ -8,7 +8,7 @@ mismo rasero para todas las comisiones y todos los grupos.
 > 50 órganos del Congreso, 864 sesiones, 225 iniciativas y 3.489 registros
 > de composición. Las coincidencias ambiguas **no se atribuyen**: quedan como
 > «sin atribuir» (43 intervenciones de las comisiones de investigación solapadas).
-> Datos congelados en la XV legislatura, corte **2026-10-12**. Senado, PNL,
+> Datos congelados en la XV legislatura, corte **2026-10-12**. El Senado confirmó el 15-nov-2026 que no tiene un catálogo abierto de composición de comisiones ni una vía de descarga masiva autorizada; por eso la composición es solo del Congreso. PNL,
 > comparecencias solicitadas y coste siguen sin datos suficientes; se marcan,
 > no se estiman. Tests: **32/32**.
 
@@ -75,7 +75,7 @@ fallo en el manifiesto en vez de insistir.
 - Actividad baja calculada con **mediana de pares**; las coincidencias ambiguas
   quedan **sin atribuir** y no suman sesiones a ninguna comisión.
 - Senado, PNL, comparecencias solicitadas, subcomisiones y coste siguen fuera:
-  no hay fuente suficiente y no se estiman.
+  no hay fuente suficiente y no se estiman. En el Senado, la limitación es de origen: no hay catálogo abierto de composición de comisiones ni autorización de acceso masivo (respuesta oficial 15-nov-2026).
 
 ## Rigor
 
