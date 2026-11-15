@@ -16,3 +16,14 @@ El Departamento de Información del Senado respondió a la solicitud de reutiliz
 ## Decisión
 
 Se actualiza el texto público: ya no se describe como un “bloqueo” técnico, sino como una **fuente inexistente o no autorizada**. Se revisará si el Senado publica el conjunto.
+
+## Vigilancia
+
+- Script: `scripts/watch_senado.py`.
+- Frecuencia: **lunes 09:25** (cron), una consulta semanal.
+- Comprueba solo páginas públicas de catálogo/transparencia; no descarga composición ni intenta saltarse el bloqueo.
+- Avisa por Telegram **solo si aparece una entrada nueva** relacionada con composición de comisiones, miembros, cargos o altas/bajas.
+- Si el Senado devuelve `403`, no se infiere nada: se registra el estado y se espera.
+- Estado: `/home/deploy/scripts/state/watch_senado.json`.
+- Log: `/home/deploy/scripts/watch_senado.log`.
+- Si aparece el catálogo, se revisa a mano y se decide si merece un adaptador; no se ingiere automáticamente.

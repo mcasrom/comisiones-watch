@@ -88,3 +88,7 @@ fallo en el manifiesto en vez de insistir.
 ## Licencia
 
 AGPL-3.0. Ver `LICENSE`.
+
+## Vigilancia del Senado
+
+`scripts/watch_senado.py` consulta semanalmente el catálogo/transparencia del Senado y avisa solo si aparece una entrada nueva de composición de comisiones. No descarga datos ni evita el bloqueo. Programado los lunes a las 09:25; log en `/home/deploy/scripts/watch_senado.log`.
