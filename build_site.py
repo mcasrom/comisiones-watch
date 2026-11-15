@@ -93,7 +93,7 @@ header.site nav{display:flex;flex-wrap:wrap;gap:.55rem;margin-left:auto}
 header.site nav a,header.site nav button{border:0;background:none;color:var(--fg);font:inherit;font-size:.9rem;cursor:pointer;text-decoration:none;padding:.15rem .3rem}
 header.site nav a:hover,header.site nav button:hover{color:var(--accent)}
 header.site nav .on{color:var(--accent);font-weight:700}
-.legend{display:flex;gap:.8rem;flex-wrap:wrap;margin:.4rem 0;font-size:.9rem}.legend i{display:inline-block;width:.7rem;height:.7rem;margin-right:.25rem}.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
+.table-scroll{overflow:auto}.legend{display:flex;gap:.8rem;flex-wrap:wrap;margin:.4rem 0;font-size:.9rem}.legend i{display:inline-block;width:.7rem;height:.7rem;margin-right:.25rem}.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 .4em;font-size:.8em;color:var(--muted)}
 .cover{height:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;overflow:hidden;max-width:18rem}
 .cover>span{display:block;height:100%;background:var(--accent)}
 """
@@ -160,6 +160,7 @@ def _page(title, body, description, *, url="", breadcrumbs=None, og_image="/og.p
             '<button data-goto="resumen">Resumen</button>'
             '<button data-goto="comisiones">Comisiones</button>'
             '<button data-goto="cruces">Cruces</button>'
+            '<a href="inactividad.html">Inactividad</a>'
         )
     else:
         section_nav = (
@@ -167,6 +168,7 @@ def _page(title, body, description, *, url="", breadcrumbs=None, og_image="/og.p
             '<a href="index.html#resumen">Resumen</a>'
             '<a href="index.html#comisiones">Comisiones</a>'
             '<a href="index.html#cruces">Cruces</a>'
+            '<a href="inactividad.html">Inactividad</a>'
         )
     header = f"""
 <header class="site">
@@ -964,7 +966,7 @@ registran y se explican.</p>
 
 
 def _write_seo_files(web, codes):
-    urls = [("/", "1.0"), ("/personas.html", "0.7"), ("/metodologia.html", "0.6"), ("/publicable.html", "0.6")]
+    urls = [("/", "1.0"), ("/inactividad.html", "0.8"), ("/personas.html", "0.7"), ("/metodologia.html", "0.6"), ("/publicable.html", "0.6")]
     urls += [(f"/comision-{code}.html", "0.8") for code in sorted(codes)]
     entries = "".join(
         f"<url><loc>{SITE}{path}</loc><lastmod>{CUTOFF}</lastmod>"
@@ -1224,6 +1226,7 @@ Datos verificados de fuentes oficiales; lo que falta se marca, no se estima.</p>
 <div class=kpis>
 {_kpi("Órganos", discovered)}
 {_kpi("Con composición", len(with_composition), f"{composition_rows} registros")}
+{_kpi("Sin actividad registrada", con.execute("SELECT COUNT(*) FROM commissions c WHERE NOT EXISTS (SELECT 1 FROM intervenciones i WHERE i.commission_source_id = c.source_id)").fetchone()[0], "posible dato incompleto")}
 {_kpi("Fechas de actividad (XV)", total_sesiones)}
 {_kpi("Iniciativas atribuidas (XV)", total_iniciativas, "por comisión competente")}
 {_unavailable("Leyes aprobadas", "en depuración · la fuente mezcla tipos")}
@@ -1305,6 +1308,7 @@ if(tabla){{
         _write_ficha(con, web, code, stats)
 
     _write_personas(con, web)
+    _write_inactividad(con, web)
     _write_metodologia(con, web, stats, total_leyes)
     _write_publicable(web)
     _write_seo_files(web, sorted(stats))
@@ -1639,6 +1643,111 @@ Es una medida de <b>estructura</b>, no de esfuerzo: los grupos pequeños suelen 
         encoding="utf-8",
     )
 
+
+def _inactivity_data(con):
+    rows = con.execute(
+        "SELECT c.source_id, c.name, c.kind, MIN(cr.start_date),"
+        " COUNT(DISTINCT i.sesion), MAX(i.sesion), COUNT(DISTINCT cr.full_name),"
+        " COUNT(DISTINCT CASE WHEN cr.role IN ('presidente','vicepresidente','secretario')"
+        " THEN cr.full_name END)"
+        " FROM commissions c"
+        " LEFT JOIN intervenciones i ON i.commission_source_id = c.source_id"
+        " LEFT JOIN composition_raw cr ON cr.commission_source_id = c.source_id"
+        " GROUP BY c.source_id"
+    ).fetchall()
+    out = []
+    for code, name, kind, constituted, sessions, last, people, directive in rows:
+        out.append({"code": code, "name": name, "kind": kind, "constituted": constituted,
+                    "sessions": int(sessions or 0), "last": last, "people": int(people or 0),
+                    "directive": int(directive or 0)})
+    return out
+
+def _fmt_date(value):
+    return value or "s/d"
+
+def _activity_rows(rows, *, zero=False, max_sessions=None, before=None, limit=20):
+    selected = []
+    for r in rows:
+        if zero and r["sessions"] != 0:
+            continue
+        if max_sessions is not None and not (1 <= r["sessions"] <= max_sessions):
+            continue
+        if before and (not r["last"] or r["last"] >= before):
+            continue
+        selected.append(r)
+    selected.sort(key=lambda r: (r["last"] or "", -r["directive"], -r["people"]))
+    return selected[:limit]
+
+def _inactivity_table(rows):
+    body = "".join(
+        "<tr>"
+        f"<td>{html.escape(r['code'])}</td>"
+        f"<td>{html.escape(r['name'])}</td>"
+        f"<td>{html.escape(r['kind'])}</td>"
+        f"<td>{html.escape(_fmt_date(r['constituted']))}</td>"
+        f"<td>{r['people']}</td><td>{r['directive']}</td>"
+        f"<td>{r['sessions']}</td><td>{html.escape(_fmt_date(r['last']))}</td>"
+        "<td><b>s/d</b></td></tr>"
+        for r in rows
+    )
+    return ("<div class=table-scroll><table><caption>Comisiones y actividad registrada</caption>"
+            "<thead><tr><th>Código</th><th>Comisión</th><th>Tipo</th><th>Primer alta</th>"
+            "<th>Personas</th><th>Directivos</th><th>Fechas</th><th>Última</th>"
+            "<th>Coste acreditado</th></tr></thead><tbody>" + body + "</tbody></table></div>")
+
+def _write_inactividad(con, web):
+    rows = _inactivity_data(con)
+    zero = _activity_rows(rows, zero=True, limit=30)
+    testimonial = _activity_rows(rows, max_sessions=2, limit=20)
+    interrupted = _activity_rows(rows, before="2026-04-12", limit=20)
+    budget = next((r for r in rows if r["code"] == "307"), None)
+    zero_n = sum(1 for r in rows if r["sessions"] == 0)
+    budget_html = ""
+    if budget:
+        budget_html = f'''<div class="card"><h2>Caso documentado: Comisión de Presupuestos</h2>
+<p><b>1 fecha de actividad</b> registrada ({html.escape(_fmt_date(budget['last']))}), <b>{budget['people']} personas</b> con cargo o adscripción y <b>{budget['directive']} cargos directivos</b> en la composición cargada.</p>
+<p>No se deduce de estos datos que exista una percepción indebida: solo que la actividad registrada es mínima. El coste acreditado no se publica.</p>
+<p><a href="https://www.sueldospublicos.com/texto-diario/mostrar/5793894/hasta-18-diputados-comision-presupuestos-siguen-cobrando-plus-834-1712-euros-brutos-mes-pese-llevar-anos-reunirse">Contexto externo: Sueldos Públicos</a></p></div>'''
+    body = f"""<p><a href="index.html">Volver</a></p>
+<h1>Comisiones: actividad, inactividad y coste público</h1>
+<p class="lead"><b>Pregunta:</b> ¿puede una responsabilidad parlamentaria seguir generando una percepción económica cuando la actividad que debería justificarla no se produce?</p>
+<p>Este observatorio solo puede responder con datos públicos y verificables. Distingue <b>constitución formal</b>, <b>funcionamiento efectivo</b> y <b>consecuencia económica</b>; no las confunde ni las presenta como prueba de irregularidad.</p>
+<div class="kpis">
+<div class="kpi"><div><strong>Comisiones sin actividad registrada</strong><b>{zero_n}</b><span class="muted">de {len(rows)}; puede haber datos incompletos</span></div></div>
+<div class="kpi"><div><strong>Coste acreditado</strong><b>s/d</b><span class="muted">requiere nóminas o pagos oficiales</span></div></div>
+<div class="kpi"><div><strong>Tarifas de referencia</strong><b>no aplicadas</b><span class="muted">no se multiplican por meses</span></div></div>
+</div>
+<section class="card"><h2>Qué se puede afirmar y qué no</h2>
+<ul><li><b>Se puede afirmar:</b> hay comisiones con cero fechas de actividad en el volcado de intervenciones y cargos en la composición.</li>
+<li><b>No se puede afirmar:</b> que hayan cobrado complementos sin actividad, que exista fraude o que la constitución fuera irregular.</li>
+<li><b>Falta:</b> nóminas, justificantes de percepción, acuerdos de constitución y explicación de la Cámara.</li></ul></section>
+<h2>Constituidas sin actividad registrada</h2>
+<p class="muted">Cero fechas en el volcado de intervenciones. Puede ser un hueco de la fuente, no una prueba de que no se reunieran.</p>
+{_inactivity_table(zero)}
+<h2>Actividad testimonial (1–2 fechas)</h2>
+{_inactivity_table(testimonial)}
+<h2>Actividad interrumpida antes de abril de 2026</h2>
+<p class="muted">Última fecha registrada anterior al corte de seis meses. No implica que la comisión estuviera obligada a reunirse.</p>
+{_inactivity_table(interrupted)}
+{budget_html}
+<div class="card"><h2>Contexto externo: Senado, comisión de investigación sobre RTVE</h2>
+<p>La Cadena SER publicó el 12-oct-2026 que el Senado destinó más de <b>74.000 €</b> a complementos de cargos de una comisión de investigación sobre RTVE constituida el 28-abr que no habría llegado a celebrar comparecencias.</p>
+<p><b>No se integra en esta base:</b> el Senado no ofrece un catálogo abierto de composición de comisiones (respuesta oficial 15-nov-2026). Es un caso de contexto, no una medición de este observatorio.</p>
+<p><a href="https://cadenaser.com/nacional/2026/10/12/el-senado-destina-mas-de-74000-euros-en-salarios-a-una-comision-de-investigacion-abierta-por-el-pp-que-no-ha-llegado-a-trabajar-cadena-ser/">Fuente: Cadena SER, 12-oct-2026</a></p></div>
+<h2>Marco y cautelas</h2>
+<ul>
+<li><b>Constitución, actividad y coste son tres cosas distintas.</b> Una comisión puede constituirse y no reunirse por decisión política, por falta de objeto o por un hueco de la fuente.</li>
+<li>El <b>Reglamento del Congreso</b> distingue comisiones permanentes y no permanentes (arts. 50 y 51). No toda inactividad es irregular.</li>
+<li>El <b>art. 71.4 CE</b> y el régimen económico de la Cámara regulan las asignaciones; una tarifa publicada no prueba un pago concreto.</li>
+<li>No se publica un coste calculado con tarifas teóricas. Se exige percepción acreditada.</li>
+<li>No se atribuye intención, fraude ni responsabilidad política.</li>
+</ul>
+<p><a href="metodologia.html">Metodología y límites</a> · <a href="publicable.html">Qué es publicable</a></p>
+"""
+    (web / "inactividad.html").write_text(_page(
+        "Comisiones: actividad, inactividad y coste público", body,
+        "Comisiones constituidas sin actividad registrada, actividad interrumpida y límites para calcular el coste público de los cargos.",
+        url="/inactividad.html", breadcrumbs=[("Inicio", "/"), ("Inactividad", "/inactividad.html")]), encoding="utf-8")
 
 def _write_metodologia(con, web, stats, total_leyes):
     rates = con.execute(

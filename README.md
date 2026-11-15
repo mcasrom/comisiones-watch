@@ -102,3 +102,7 @@ La pestaña **Cruces** incluye tres lecturas:
 - **Responsabilidad frente a actividad:** dispersión entre comisiones e intervenciones registradas.
 
 Advertencia: acumular cargos no mide dedicación; las intervenciones no son asistencia ni calidad del trabajo. Solo se atribuyen cuando el nombre coincide exactamente.
+
+## Actividad, inactividad y coste público
+
+La página `/inactividad.html` recupera la pregunta fundacional: si una comisión puede mantener cargos y complementos sin actividad efectiva. Distingue constitución formal, funcionamiento y percepción económica; no calcula costes con tarifas teóricas y no atribuye fraude. Incluye comisiones sin actividad registrada, actividad testimonial, actividad interrumpida y dos casos de contexto (Presupuestos y Senado/RTVE).
