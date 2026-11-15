@@ -1697,13 +1697,54 @@ def _inactivity_table(rows):
             "<th>Personas</th><th>Directivos</th><th>Fechas</th><th>Última</th>"
             "<th>Coste acreditado</th></tr></thead><tbody>" + body + "</tbody></table></div>")
 
+def _svg_inactivity_map(rows):
+    if not rows:
+        return '<p class="muted">Sin datos de actividad.</p>'
+    colors = {"investigacion": "#b45309", "permanente": "#2563eb",
+              "legislativa": "#0b5", "mixta": "#7c3aed", "subcomision": "#64748b"}
+    max_x = max((r["people"] for r in rows), default=1) or 1
+    max_y = max((r["sessions"] for r in rows), default=1) or 1
+    left, top, width, height = 48, 18, 600, 220
+    parts = [
+        f'<line x1="{left}" y1="{top+height}" x2="{left+width}" y2="{top+height}" stroke="#94a3b8"/>',
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top+height}" stroke="#94a3b8"/>',
+    ]
+    for value in (0, max_x // 2, max_x):
+        x = left + value / max_x * width
+        parts.append(f'<text x="{x:.1f}" y="{top+height+16}" font-size="9" text-anchor="middle" fill="#64748b">{value}</text>')
+    parts.append(f'<text x="{left+width/2}" y="{top+height+34}" font-size="11" text-anchor="middle" fill="#334155">personas con cargo o adscripción</text>')
+    for value in (0, max_y // 2, max_y):
+        y = top + height - value / max_y * height
+        parts.append(f'<text x="{left-7}" y="{y+3}" font-size="9" text-anchor="end" fill="#64748b">{value}</text>')
+    parts.append(f'<text x="10" y="{top+height/2}" font-size="11" transform="rotate(-90 10 {top+height/2})" text-anchor="middle" fill="#334155">fechas de actividad</text>')
+    for r in rows:
+        x = left + r["people"] / max_x * width
+        y = top + height - r["sessions"] / max_y * height
+        color = colors.get(r["kind"], "#64748b")
+        extra = ' stroke="#b91c1c" stroke-width="2"' if r["sessions"] == 0 and r["people"] else ""
+        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.5" fill="{color}"{extra}><title>{html.escape(r["name"])} · {r["people"]} personas · {r["sessions"]} fechas · {html.escape(r["kind"])}</title></circle>')
+    labels = [r for r in rows if r["sessions"] == 0 and r["people"]]
+    labels = sorted(labels, key=lambda r: -r["people"])[:5]
+    for i, r in enumerate(labels):
+        x = left + r["people"] / max_x * width
+        y = top + height - 8 - (i % 2) * 12
+        parts.append(f'<text x="{min(x+5, left+width-4):.1f}" y="{y:.1f}" font-size="9" fill="#b91c1c">{html.escape(r["name"][:28])}</text>')
+    legend = ('<div class="legend">'
+              '<span><i style="background:#b45309"></i>investigación</span>'
+              '<span><i style="background:#2563eb"></i>permanente</span>'
+              '<span><i style="background:#0b5"></i>legislativa</span>'
+              '<span><i style="background:#7c3aed"></i>mixta</span>'
+              '<span><i style="background:#64748b"></i>otra</span>'
+              '<span><i style="background:#fff;border:2px solid #b91c1c"></i>sin fechas</span></div>')
+    return (legend + f'<svg viewBox="0 0 {left+width+20} {top+height+42}" width="100%" role="img" aria-label="Personas con cargo y fechas de actividad por comisión">' + "".join(parts) + '</svg>')
+
 def _write_inactividad(con, web):
     rows = _inactivity_data(con)
     zero = _activity_rows(rows, zero=True, limit=30)
     testimonial = _activity_rows(rows, max_sessions=2, limit=20)
     interrupted = _activity_rows(rows, before="2026-04-12", limit=20)
     investigations = con.execute(
-        "SELECT c.source_id, c.name, COUNT(DISTINCT i.sesion), COUNT(DISTINCT i.orador),"
+        "SELECT c.source_id, c.name, COUNT(DISTINCT i.sesion), COUNT(DISTINCT cr.full_name),"
         " MAX(i.sesion), COUNT(DISTINCT CASE WHEN cr.role IN ('presidente','vicepresidente','secretario')"
         " THEN cr.full_name END)"
         " FROM commissions c"
@@ -1717,6 +1758,7 @@ def _write_inactividad(con, web):
          "directive": int(directive or 0)}
         for code, name, sessions, people, last, directive in investigations
     ])
+    activity_map = _svg_inactivity_map(rows)
     budget = next((r for r in rows if r["code"] == "307"), None)
     zero_n = sum(1 for r in rows if r["sessions"] == 0)
     budget_html = ""
@@ -1739,6 +1781,9 @@ def _write_inactividad(con, web):
 <li><b>No se puede afirmar:</b> que hayan cobrado complementos sin actividad, que exista fraude o que la constitución fuera irregular.</li>
 <li><b>Falta:</b> nóminas, justificantes de percepción, acuerdos de constitución y explicación de la Cámara.</li></ul>
 <p><b>No hay nóminas ni justificantes públicos.</b> Por eso no se publica una cifra de coste: una tarifa oficial no prueba un pago concreto y multiplicar tarifas por meses sería una estimación, no un coste acreditado.</p></section>
+<h2>Mapa de actividad registrada</h2>
+<p class="muted">Cada punto es una comisión: a la derecha, más personas con cargo; abajo, menos fechas. La línea roja marca las que tienen cero fechas y cargos. <b>No implica irregularidad:</b> puede haber un hueco de la fuente.</p>
+{activity_map}
 <h2>Constituidas sin actividad registrada</h2>
 <p class="muted">Cero fechas en el volcado de intervenciones. Puede ser un hueco de la fuente, no una prueba de que no se reunieran.</p>
 {_inactivity_table(zero)}
