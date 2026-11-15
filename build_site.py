@@ -1784,9 +1784,11 @@ def _solo_creacion_table(rows):
 
 def _write_inactividad(con, web):
     rows = _inactivity_data(con)
+    review = json.loads((BASE / "docs" / "revision_comisiones.json").read_text(encoding="utf-8"))
     zero = _activity_rows(rows, zero=True, limit=30)
     testimonial = _activity_rows(rows, max_sessions=2, limit=20)
-    interrupted = _activity_rows(rows, before="2026-04-12", limit=20)
+    interrupted_all = _activity_rows(rows, before="2026-04-12", limit=40)
+    interrupted = [r for r in interrupted_all if review.get(r["code"], {}).get("resultado") not in ("descartada", "no constituida", "subsumida")]
     investigations = con.execute(
         "SELECT c.source_id, c.name, COUNT(DISTINCT i.sesion), COUNT(DISTINCT cr.full_name),"
         " MAX(i.sesion), COUNT(DISTINCT CASE WHEN cr.role IN ('presidente','vicepresidente','secretario')"
@@ -1805,22 +1807,30 @@ def _write_inactividad(con, web):
         for code, name, sessions, people, last, directive, iniciativas in investigations
     ])
     activity_map = _svg_inactivity_map(rows)
-    creation_timeline = _svg_solo_creacion(zero)
-    solo_table = _solo_creacion_table(zero)
     budget = next((r for r in rows if r["code"] == "307"), None)
     zero_n = sum(1 for r in rows if r["sessions"] == 0)
+    confirmed_n = sum(1 for r in rows if review.get(r["code"], {}).get("constitucion") == "Sí" and review.get(r["code"], {}).get("sesiones_oficiales") == 0)
+    reviewed_zero = [r for r in rows if r["sessions"] == 0 and review.get(r["code"], {}).get("resultado") not in ("descartada", "no constituida", "subsumida") and not (review.get(r["code"], {}).get("constitucion") == "Sí" and (review.get(r["code"], {}).get("sesiones_oficiales") or 0) > 0)]
+    creation_timeline = _svg_solo_creacion(reviewed_zero)
+    solo_table = _solo_creacion_table(reviewed_zero)
+    review_rows = []
+    for code, item in review.items():
+        review_rows.append(f"<tr><td>{html.escape(code)}</td><td>{html.escape(item['tipo'])}</td><td>{html.escape(item['senal'])}</td><td>{html.escape(item['revision'])}</td><td><b>{html.escape(item['resultado'])}</b></td></tr>")
+    review_table = ("<div class=table-scroll><table><caption>Revisión documental</caption><thead><tr><th>Código</th><th>Cámara</th><th>Señal inicial</th><th>Comprobación</th><th>Resultado</th></tr></thead><tbody>" + "".join(review_rows) + "</tbody></table></div>")
     budget_html = ""
     if budget:
         budget_html = f'''<div class="card"><h2>Caso documentado: Comisión de Presupuestos</h2>
 <p><b>1 fecha de actividad</b> registrada ({html.escape(_fmt_date(budget['last']))}), <b>{budget['people']} personas</b> con cargo o adscripción y <b>{budget['directive']} cargos directivos</b> en la composición cargada.</p>
-<p>No se deduce de estos datos que exista una percepción indebida: solo que la actividad registrada es mínima. El coste acreditado no es calculable con fuentes públicas.</p>
+<p>El Diario de Sesiones 17 (4-dic-2023) acredita la constitución y la elección de la Mesa; el presidente anunció que la comisión se reuniría para el proyecto presupuestario. La actividad posterior está pendiente de reconstruir: <b>no se califica de inactiva</b>.</p>
+<p>No se deduce de estos datos que exista una percepción indebida. El coste acreditado no se calcula.</p>
 <p><a href="https://www.sueldospublicos.com/texto-diario/mostrar/5793894/hasta-18-diputados-comision-presupuestos-siguen-cobrando-plus-834-1712-euros-brutos-mes-pese-llevar-anos-reunirse">Contexto externo: Sueldos Públicos</a></p></div>'''
     body = f"""<p><a href="index.html">Volver</a></p>
 <h1>Comisiones: actividad, inactividad y coste público</h1>
 <p class="lead"><b>Pregunta:</b> ¿puede una responsabilidad parlamentaria seguir generando una percepción económica cuando la actividad que debería justificarla no se produce?</p>
 <p>Este observatorio solo puede responder con datos públicos y verificables. Distingue <b>constitución formal</b>, <b>funcionamiento efectivo</b> y <b>consecuencia económica</b>; no las confunde ni las presenta como prueba de irregularidad.</p>
 <div class="kpis">
-<div class="kpi"><div><strong>Comisiones sin actividad registrada</strong><b>{zero_n}</b><span class="muted">de {len(rows)}; puede haber datos incompletos</span></div></div>
+<div class="kpi"><div><strong>Casos confirmados sin actividad</strong><b>{confirmed_n}</b><span class="muted">tras revisión documental</span></div></div>
+<div class="kpi"><div><strong>Señales de extracción</strong><b>{zero_n}</b><span class="muted">0 fechas; no son conclusiones</span></div></div>
 <div class="kpi"><div><strong>Coste acreditado</strong><b>no calculable</b><span class="muted">no hay nóminas ni justificantes públicos</span></div></div>
 <div class="kpi"><div><strong>Tarifas de referencia</strong><b>no aplicadas</b><span class="muted">no se multiplican por meses</span></div></div>
 </div>
@@ -1832,7 +1842,10 @@ def _write_inactividad(con, web):
 <h2>Mapa de actividad registrada</h2>
 <p class="muted">Cada punto es una comisión: a la derecha, más personas con cargo; abajo, menos fechas. La línea roja marca las que tienen cero fechas y cargos. <b>No implica irregularidad:</b> puede haber un hueco de la fuente.</p>
 {activity_map}
-<h2>Solo creación: constituidas sin actividad registrada</h2>
+<h2>Revisión documental: qué se ha descartado</h2>
+<p class="muted">La extracción inicial daba 8 señales. La comprobación oficial descarta varias y reduce los casos confirmados a <b>{confirmed_n}</b>. Un cero de extracción no es una comisión inactiva.</p>
+{review_table}
+<h2>Señales de extracción: solo alta y 0 fechas</h2>
 <p class="muted">La línea empieza en el <b>primer alta</b> y llega al corte sin fechas registradas. No es la fecha oficial de constitución ni prueba de que no se reunieran: puede faltar la transcripción.</p>
 {creation_timeline}
 {solo_table}
@@ -1847,7 +1860,7 @@ def _write_inactividad(con, web):
 {investigation_html}
 {budget_html}
 <div class="card"><h2>Contexto externo: Senado, comisión de investigación sobre RTVE</h2>
-<p>La Cadena SER publicó el 12-oct-2026 que el Senado destinó más de <b>74.000 €</b> a complementos de cargos de una comisión de investigación sobre RTVE constituida el 28-abr que no habría llegado a celebrar comparecencias.</p>
+<p>La Cadena SER publicó el 12-oct-2026 que el Senado destinó más de <b>74.000 €</b> a complementos de cargos de una comisión de investigación sobre RTVE. La ficha oficial del Senado registra <b>dos sesiones</b> (28-abr y 20-jul), aprobación del plan de trabajo, continuación a puerta cerrada, <b>sin diarios publicados</b>, y finalización el <b>5-oct-2026</b>.</p>
 <p><b>No se integra en esta base:</b> el Senado no ofrece un catálogo abierto de composición de comisiones (respuesta oficial 15-nov-2026). Es un caso de contexto, no una medición de este observatorio.</p>
 <p><a href="caso-senado-rtve.html">Ficha externa completa →</a> · <a href="https://cadenaser.com/nacional/2026/10/12/el-senado-destina-mas-de-74000-euros-en-salarios-a-una-comision-de-investigacion-abierta-por-el-pp-que-no-ha-llegado-a-trabajar-cadena-ser/">Fuente: Cadena SER, 12-oct-2026</a></p></div>
 <h2>Marco y cautelas</h2>
@@ -1874,9 +1887,10 @@ def _write_caso_senado_rtve(web):
 <div class="kpi"><div><strong>Coste acreditado</strong><b>no consta</b><span class="muted">la cifra publicada no se ha verificado aquí</span></div></div>
 <div class="kpi"><div><strong>Datos del Senado</strong><b>no ingeridos</b><span class="muted">sin catálogo abierto de composición</span></div></div>
 </div>
-<h2>Qué publicó la prensa</h2>
-<p>La Cadena SER publicó el <b>12-oct-2026</b> que el Senado habría destinado más de <b>74.000 €</b> a complementos de cargos de una comisión de investigación sobre RTVE constituida el <b>28-abr-2026</b>, que no habría llegado a celebrar comparecencias ni a iniciar sus trabajos.</p>
-<p><span class="chip">Fuente periodística</span> Esta ficha reproduce el hecho publicado, no lo eleva a dato oficial ni a conclusión propia.</p>
+<h2>Qué publicó la prensa y qué consta en el Senado</h2>
+<p>La Cadena SER publicó el <b>12-oct-2026</b> que el Senado habría destinado más de <b>74.000 €</b> a complementos de cargos de una comisión de investigación sobre RTVE que no habría llegado a trabajar.</p>
+<p>La documentación oficial del Senado precisa que la comisión se constituyó el <b>28-abr-2026</b>, celebró sesiones el <b>28-abr</b> y el <b>20-jul</b>, aprobó su plan de trabajo y continuó a puerta cerrada; no se publicaron diarios de sesiones y finalizó el <b>5-oct-2026</b>.</p>
+<p><span class="chip">Fuente periodística</span> La cifra de 74.000 € no está verificada por este observatorio. <span class="chip">Fuente oficial</span> Las dos sesiones y la ausencia de diarios constan en la ficha del Senado.</p>
 <h2>Por qué no está en la tabla</h2>
 <ul>
 <li>La base del observatorio cubre <b>composición y actividad del Congreso</b>; no del Senado.</li>
