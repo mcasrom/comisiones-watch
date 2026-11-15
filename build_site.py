@@ -1651,17 +1651,19 @@ def _inactivity_data(con):
         "SELECT c.source_id, c.name, c.kind, MIN(cr.start_date),"
         " COUNT(DISTINCT i.sesion), MAX(i.sesion), COUNT(DISTINCT cr.full_name),"
         " COUNT(DISTINCT CASE WHEN cr.role IN ('presidente','vicepresidente','secretario')"
-        " THEN cr.full_name END)"
+        " THEN cr.full_name END), COALESCE(MAX(ini.n), 0)"
         " FROM commissions c"
         " LEFT JOIN intervenciones i ON i.commission_source_id = c.source_id"
         " LEFT JOIN composition_raw cr ON cr.commission_source_id = c.source_id"
+        " LEFT JOIN (SELECT comision_source_id, COUNT(DISTINCT num_expediente) n FROM iniciativas GROUP BY comision_source_id) ini"
+        " ON ini.comision_source_id = c.source_id"
         " GROUP BY c.source_id"
     ).fetchall()
     out = []
-    for code, name, kind, constituted, sessions, last, people, directive in rows:
+    for code, name, kind, constituted, sessions, last, people, directive, iniciativas in rows:
         out.append({"code": code, "name": name, "kind": kind, "constituted": constituted,
                     "sessions": int(sessions or 0), "last": last, "people": int(people or 0),
-                    "directive": int(directive or 0)})
+                    "directive": int(directive or 0), "iniciativas": int(iniciativas or 0)})
     return out
 
 def _fmt_date(value):
@@ -1688,13 +1690,15 @@ def _inactivity_table(rows):
         f"<td>{html.escape(r['kind'])}</td>"
         f"<td>{html.escape(_fmt_date(r['constituted']))}</td>"
         f"<td>{r['people']}</td><td>{r['directive']}</td>"
-        f"<td>{r['sessions']}</td><td>{html.escape(_fmt_date(r['last']))}</td>"
+        f"<td>{r['sessions']}</td><td>{r.get('iniciativas', 0)}</td>"
+        f"<td>{html.escape(_fmt_date(r['last']))}</td>"
+        f"<td>{'dato incompleto: 0 fechas con iniciativas' if r['sessions'] == 0 and r.get('iniciativas', 0) else 'sin fechas ni iniciativas' if r['sessions'] == 0 else 'actividad'}</td>"
         "<td><b>no consta</b></td></tr>"
         for r in rows
     )
     return ("<div class=table-scroll><table><caption>Comisiones y actividad registrada</caption>"
             "<thead><tr><th>Código</th><th>Comisión</th><th>Tipo</th><th>Primer alta</th>"
-            "<th>Personas</th><th>Directivos</th><th>Fechas</th><th>Última</th>"
+            "<th>Personas</th><th>Directivos</th><th>Fechas</th><th>Iniciativas</th><th>Última</th><th>Lectura</th>"
             "<th>Coste acreditado</th></tr></thead><tbody>" + body + "</tbody></table></div>")
 
 def _svg_inactivity_map(rows):
@@ -1746,17 +1750,19 @@ def _write_inactividad(con, web):
     investigations = con.execute(
         "SELECT c.source_id, c.name, COUNT(DISTINCT i.sesion), COUNT(DISTINCT cr.full_name),"
         " MAX(i.sesion), COUNT(DISTINCT CASE WHEN cr.role IN ('presidente','vicepresidente','secretario')"
-        " THEN cr.full_name END)"
+        " THEN cr.full_name END), COALESCE(MAX(ini.n), 0)"
         " FROM commissions c"
         " LEFT JOIN intervenciones i ON i.commission_source_id = c.source_id"
         " LEFT JOIN composition_raw cr ON cr.commission_source_id = c.source_id"
+        " LEFT JOIN (SELECT comision_source_id, COUNT(DISTINCT num_expediente) n FROM iniciativas GROUP BY comision_source_id) ini"
+        " ON ini.comision_source_id = c.source_id"
         " WHERE c.kind = 'investigacion' GROUP BY c.source_id ORDER BY c.name"
     ).fetchall()
     investigation_html = _inactivity_table([
         {"code": code, "name": name, "kind": "investigación", "constituted": None,
          "sessions": int(sessions or 0), "last": last, "people": int(people or 0),
-         "directive": int(directive or 0)}
-        for code, name, sessions, people, last, directive in investigations
+         "directive": int(directive or 0), "iniciativas": int(iniciativas or 0)}
+        for code, name, sessions, people, last, directive, iniciativas in investigations
     ])
     activity_map = _svg_inactivity_map(rows)
     budget = next((r for r in rows if r["code"] == "307"), None)
@@ -1787,6 +1793,7 @@ def _write_inactividad(con, web):
 <h2>Constituidas sin actividad registrada</h2>
 <p class="muted">Cero fechas en el volcado de intervenciones. Puede ser un hueco de la fuente, no una prueba de que no se reunieran.</p>
 {_inactivity_table(zero)}
+<p class="muted"><b>362, 363 y 364</b> son propuestas solapadas sobre el mismo apagón; no se suman como tres bloqueos independientes. Las comisiones pueden no haber generado intervenciones transcritas: la XV se disolvió el 6-oct-2026. La causa concreta no consta en la fuente.</p>
 <h2>Actividad testimonial (1–2 fechas)</h2>
 {_inactivity_table(testimonial)}
 <h2>Actividad interrumpida antes de abril de 2026</h2>
